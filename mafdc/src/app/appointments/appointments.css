@@ -224,4 +224,23 @@
 
 .rbc-date-cell {
   vertical-align: top !important;
+}
+
+.rbc-wednesday {
+  background-color: #fef2f2 !important;
+  cursor: not-allowed !important;
+}
+
+.rbc-wednesday .rbc-button-link {
+  color: #ef4444 !important;
+  text-decoration: line-through;
+}
+
+/* Make sure the warning modal is on top */
+.alert-dialog-overlay {
+  z-index: 50;
+}
+
+.alert-dialog-content {
+  z-index: 51;
 } 

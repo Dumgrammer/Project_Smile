@@ -13,6 +13,29 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { IconArrowLeft, IconCircleCheckFilled, IconLoader } from '@tabler/icons-react';
 import { use } from 'react';
+import { usePatientAppointments } from '@/hooks/appointments/usePatientAppointments';
+import { format } from 'date-fns';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 
 interface Patient {
   _id: string;
@@ -53,9 +76,13 @@ export default function PatientDetails({
 }) {
   const router = useRouter();
   const { getPatientById } = usePatients();
+  const { loading: appointmentsLoading, error: appointmentsError, getPatientAppointments } = usePatientAppointments();
   const [patient, setPatient] = useState<Patient | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [appointments, setAppointments] = useState<any[]>([]);
+  const [sortBy, setSortBy] = useState('date');
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
 
   // Unwrap the params promise
   const resolvedParams = use(params);
@@ -95,6 +122,19 @@ export default function PatientDetails({
       isMounted = false;
     };
   }, [resolvedParams.id, getPatientById]);
+
+  useEffect(() => {
+    fetchPatientAppointments();
+  }, [resolvedParams.id, sortBy]);
+
+  const fetchPatientAppointments = async () => {
+    try {
+      const data = await getPatientAppointments(resolvedParams.id, sortBy);
+      setAppointments(data);
+    } catch (err) {
+      console.error('Failed to fetch patient appointments:', err);
+    }
+  };
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'N/A';
@@ -146,17 +186,31 @@ export default function PatientDetails({
         <div className="flex flex-1 flex-col">
           <div className="@container/main flex flex-1 flex-col gap-2">
             <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-              {/* Header */}
               <div className="px-4 lg:px-6">
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => router.back()}
-                  className="mb-4"
-                >
-                  <IconArrowLeft className="mr-2 h-4 w-4" />
-                  Back to Patients
-                </Button>
+                <div className="flex justify-between items-center mb-4">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => router.back()}
+                  >
+                    <IconArrowLeft className="mr-2 h-4 w-4" />
+                    Back to Patients
+                  </Button>
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline"
+                      onClick={() => setShowHistoryModal(true)}
+                    >
+                      View History
+                    </Button>
+                    <Button 
+                      variant="outline"
+                      onClick={() => router.push(`/appointments?patientId=${resolvedParams.id}`)}
+                    >
+                      Schedule Appointment
+                    </Button>
+                  </div>
+                </div>
                 
                 <div className="flex justify-between items-center">
                   <div>
@@ -174,10 +228,8 @@ export default function PatientDetails({
                 </div>
               </div>
 
-              {/* Content */}
               <div className="px-4 lg:px-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Personal Information */}
                   <div className="bg-white p-6 rounded-lg shadow-md border border-slate-200">
                     <h2 className="text-xl font-semibold mb-4 text-violet-800">Personal Information</h2>
                     <div className="space-y-3">
@@ -200,7 +252,6 @@ export default function PatientDetails({
                     </div>
                   </div>
 
-                  {/* Contact Information */}
                   <div className="bg-white p-6 rounded-lg shadow-md border border-slate-200">
                     <h2 className="text-xl font-semibold mb-4 text-violet-800">Contact Information</h2>
                     <div className="space-y-3">
@@ -228,7 +279,6 @@ export default function PatientDetails({
                     </div>
                   </div>
 
-                  {/* Emergency Contact */}
                   <div className="bg-white p-6 rounded-lg shadow-md border border-slate-200">
                     <h2 className="text-xl font-semibold mb-4 text-violet-800">Emergency Contact</h2>
                     {patient.emergencyContact?.name ? (
@@ -251,7 +301,6 @@ export default function PatientDetails({
                     )}
                   </div>
 
-                  {/* Medical Information */}
                   <div className="bg-white p-6 rounded-lg shadow-md border border-slate-200">
                     <h2 className="text-xl font-semibold mb-4 text-violet-800">Medical Information</h2>
                     <div className="space-y-3">
@@ -267,7 +316,6 @@ export default function PatientDetails({
                   </div>
                 </div>
 
-                {/* Cases/Treatments */}
                 <div className="mt-6 bg-white p-6 rounded-lg shadow-md border border-slate-200">
                   <h2 className="text-xl font-semibold mb-4 text-violet-800">Cases & Treatments</h2>
                   {patient.cases && patient.cases.length > 0 ? (
@@ -305,6 +353,73 @@ export default function PatientDetails({
           </div>
         </div>
       </SidebarInset>
+
+      {/* Appointment History Modal */}
+      <Dialog open={showHistoryModal} onOpenChange={setShowHistoryModal}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Appointment History</DialogTitle>
+            <DialogDescription>
+              View all appointments for {patient?.firstName} {patient?.lastName}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end mb-4">
+            <Select
+              value={sortBy}
+              onValueChange={(value) => setSortBy(value)}
+            >
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Sort by" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="date">Newest First</SelectItem>
+                <SelectItem value="dateAsc">Oldest First</SelectItem>
+                <SelectItem value="status">By Status</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="max-h-[60vh] overflow-y-auto">
+            {appointmentsLoading ? (
+              <div className="text-center py-4">Loading appointments...</div>
+            ) : appointmentsError ? (
+              <div className="text-center py-4 text-red-500">{appointmentsError}</div>
+            ) : appointments.length === 0 ? (
+              <div className="text-center py-4 text-slate-500">No appointments found</div>
+            ) : (
+              <div className="space-y-4">
+                {appointments.map((appointment) => (
+                  <div
+                    key={appointment._id}
+                    className="p-4 border rounded-lg hover:bg-gray-50"
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <div className="font-medium">{appointment.title}</div>
+                        <div className="text-sm text-gray-500">
+                          Date: {format(new Date(appointment.date), 'MMMM d, yyyy')}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          Time: {appointment.startTime} - {appointment.endTime}
+                        </div>
+                      </div>
+                      <Badge 
+                        variant={
+                          appointment.status === 'Scheduled' ? 'default' :
+                          appointment.status === 'Finished' ? 'secondary' :
+                          appointment.status === 'Cancelled' ? 'destructive' :
+                          'outline'
+                        }
+                      >
+                        {appointment.status}
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </SidebarProvider>
   );
 } 
