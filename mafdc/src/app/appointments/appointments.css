@@ -1,0 +1,227 @@
+/* Custom styles for react-big-calendar */
+
+/* Fix the event positioning and sizing */
+.rbc-event {
+  position: absolute !important;
+  z-index: 3;
+  margin: 0 !important;
+  padding: 2px 5px !important;
+  min-height: 20px !important;
+}
+
+/* Make sure events don't overflow their containers */
+.rbc-event-content {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+  font-size: 14px;
+}
+
+/* Add some spacing between slots */
+.rbc-time-slot {
+  border-top: 1px solid #f0f0f0;
+}
+
+/* Improve the time gutter styling */
+.rbc-time-gutter {
+  font-size: 12px;
+  text-align: right;
+  padding-right: 8px;
+}
+
+/* Style the time indicators */
+.rbc-timeslot-group {
+  min-height: 40px;
+}
+
+/* Improve current time indicator */
+.rbc-current-time-indicator {
+  height: 2px;
+  background-color: #f43f5e;
+  z-index: 5;
+  position: absolute;
+}
+
+/* Add vertical grid lines */
+.rbc-day-slot .rbc-time-slot {
+  border-right: 1px dotted #e2e8f0;
+}
+
+/* Adjust day header */
+.rbc-header {
+  padding: 8px 4px;
+  font-weight: 600;
+  font-size: 14px;
+  background-color: #f8f9fa;
+}
+
+/* Style the all-day section */
+.rbc-allday-cell {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+/* Hover effect on slots */
+.rbc-day-slot .rbc-time-slot:hover {
+  background-color: rgba(99, 102, 241, 0.05);
+}
+
+/* Style the time labels */
+.rbc-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #64748b;
+}
+
+/* Modern FullCalendar UI improvements */
+
+/* Calendar container */
+.fc {
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 4px 24px 0 rgba(80, 80, 120, 0.08);
+  padding: 16px 8px 8px 8px;
+  border: none;
+}
+
+/* Calendar header toolbar */
+.fc-header-toolbar {
+  margin-bottom: 18px;
+  padding: 0 8px;
+}
+.fc-toolbar-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #312e81;
+  letter-spacing: -0.5px;
+}
+.fc-button {
+  border-radius: 8px;
+  background: #ede9fe;
+  color: #6d28d9;
+  border: none;
+  font-weight: 600;
+  transition: background 0.2s, color 0.2s;
+}
+.fc-button-primary:not(:disabled):hover {
+  background: #c7d2fe;
+  color: #4f46e5;
+}
+.fc-button-primary:focus {
+  box-shadow: 0 0 0 2px #a5b4fc;
+}
+
+/* Soften grid lines */
+.fc-scrollgrid, .fc-col-header-cell, .fc-timegrid-slot, .fc-daygrid-day {
+  border-color: #e5e7eb !important;
+}
+.fc-timegrid-slot {
+  background: #fafafc;
+}
+.fc-day-today {
+  background: #f3f4f6 !important;
+}
+
+/* Weekend background */
+.fc-day-sat, .fc-day-sun {
+  background: #f8fafc !important;
+}
+
+/* Event styling */
+.fc-event {
+  border-radius: 10px;
+  box-shadow: 0 2px 8px 0 rgba(99, 102, 241, 0.10);
+  background: linear-gradient(90deg, #a5b4fc 0%, #6366f1 100%);
+  color: #fff;
+  border: none;
+  font-weight: 500;
+  padding: 4px 10px;
+  transition: transform 0.12s, box-shadow 0.12s;
+}
+.fc-event:hover {
+  transform: scale(1.03);
+  box-shadow: 0 4px 16px 0 rgba(99, 102, 241, 0.18);
+  z-index: 10;
+}
+
+/* Event title and time */
+.fc-event-title {
+  font-size: 1rem;
+  font-weight: 600;
+}
+.fc-event-time {
+  font-size: 0.95rem;
+  font-weight: 400;
+  opacity: 0.9;
+}
+
+/* Remove griddy look from time slots */
+.fc-timegrid-slot-label {
+  color: #64748b;
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+/* Add spacing between calendar and left sidebar */
+@media (min-width: 768px) {
+  .fc {
+    margin-left: 12px;
+  }
+}
+
+/* Hide all event bars in month view, even multi-day */
+.rbc-month-view .rbc-event,
+.rbc-month-view .rbc-background-event,
+.rbc-month-view .rbc-row-segment,
+.rbc-month-row .rbc-event,
+.rbc-month-row .rbc-background-event,
+.rbc-month-row .rbc-row-segment {
+  /* display: none !important; */
+  /* height: 0 !important; */
+  /* min-height: 0 !important; */
+  /* max-height: 0 !important; */
+  /* padding: 0 !important; */
+  /* margin: 0 !important; */
+  /* overflow: hidden !important; */
+  /* background: none !important; */
+  /* border: none !important; */
+  /* box-shadow: none !important; */
+}
+
+/* Make month view events stack vertically and look like plain text */
+.rbc-month-view .rbc-event,
+.rbc-month-view .rbc-background-event,
+.rbc-month-view .rbc-row-segment {
+  background: none !important;
+  color: #222 !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 2px !important;
+  margin: 0 0 2px 0 !important;
+  font-size: 0.95rem !important;
+  font-weight: 500 !important;
+  border-radius: 0 !important;
+  min-height: 0 !important;
+  height: auto !important;
+  line-height: 1.2 !important;
+  display: block !important;
+  overflow: visible !important;
+  position: static !important;
+}
+
+/* Ensure the event content is also styled as plain text */
+.rbc-month-view .rbc-event-content {
+  color: #222 !important;
+  background: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  font-size: 0.95rem !important;
+  font-weight: 500 !important;
+  border-radius: 0 !important;
+  line-height: 1.2 !important;
+  overflow: visible !important;
+}
+
+.rbc-date-cell {
+  vertical-align: top !important;
+} 

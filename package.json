@@ -1,0 +1,21 @@
+{
+  "name": "project_smile",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Dumgrammer/Project_Smile.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Dumgrammer/Project_Smile/issues"
+  },
+  "homepage": "https://github.com/Dumgrammer/Project_Smile#readme"
+}
