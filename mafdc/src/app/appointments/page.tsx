@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { format, parse, startOfWeek, getDay, isWednesday, isToday, parseISO } from 'date-fns';
+import { format, parse, startOfWeek, getDay, isToday, parseISO } from 'date-fns';
 import { enUS } from 'date-fns/locale';
 import { Calendar, dateFnsLocalizer, Views, View } from 'react-big-calendar';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
@@ -23,7 +23,6 @@ import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { useRouter, usePathname } from 'next/navigation';
-import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction } from "@/components/ui/alert-dialog";
 
 const locales = {
   'en-US': enUS,
@@ -122,7 +121,6 @@ export default function AppointmentsPage() {
   const [view, setView] = useState<View>(Views.WEEK);
   const [date, setDate] = useState(new Date());
   const [key, setKey] = useState(0);
-  const [showWednesdayWarning, setShowWednesdayWarning] = useState(false);
 
   useEffect(() => {
     setKey(prev => prev + 1);
@@ -208,7 +206,7 @@ export default function AppointmentsPage() {
       toast.error('Failed to create appointment');
     }
   };
-
+  
   const handleSelectEvent = (event: any) => {
     setSelectedAppointment(event);
     setShowEditModal(true);
@@ -255,23 +253,16 @@ export default function AppointmentsPage() {
   };
 
   // Define business days (all days except Wednesday)
-  const businessDays = useMemo(() => [0, 1, 2, 4, 5, 6], []);
+  const businessDays = useMemo(() => [0, 1, 2, 3, 4, 5, 6], []);
 
   // Check if a date is within business hours
   const isWithinBusinessHours = (date: Date) => {
-    if (isWednesday(date)) {
-      return false; // Clinic is closed on Wednesdays
-    }
     const hours = date.getHours();
     return hours >= 9 && hours < 19; // Between 9am and 7pm
   };
-
+  
   // Update handleSelectSlot to use business logic
   const handleSelectSlot = ({ start, end }: { start: Date; end: Date }) => {
-    if (isWednesday(start)) {
-      setShowWednesdayWarning(true);
-      return;
-    }
     if (!isWithinBusinessHours(start) || !isWithinBusinessHours(end)) {
       toast.error('Please select a time between 9:00 AM and 7:00 PM.');
       return;
@@ -284,7 +275,7 @@ export default function AppointmentsPage() {
     });
     setShowAppointmentModal(true);
   };
-
+  
   // Get today's appointments
   const todaysAppointments = useMemo(() => {
     return events.filter(event => 
@@ -292,27 +283,6 @@ export default function AppointmentsPage() {
       isToday(event.start)
     );
   }, [events]);
-
-  const isWithinWednesdayBusinessHours = () => {
-    const now = new Date();
-    if (!isWednesday(now)) return false;
-    
-    const hours = now.getHours();
-    const minutes = now.getMinutes();
-    const currentTime = hours * 60 + minutes; // Convert to minutes for easier comparison
-    
-    const businessStart = 9 * 60; // 9:00 AM in minutes
-    const businessEnd = 19 * 60;  // 7:00 PM in minutes
-    
-    return currentTime >= businessStart && currentTime < businessEnd;
-  };
-
-  useEffect(() => {
-    // Check if it's Wednesday during business hours when component mounts
-    if (isWithinWednesdayBusinessHours()) {
-      setShowWednesdayWarning(true);
-    }
-  }, []);
 
   const navigate = (action: 'PREV' | 'NEXT' | 'TODAY') => {
     let newDate = new Date(date);
@@ -340,27 +310,11 @@ export default function AppointmentsPage() {
         break;
     }
 
-    // Check if the new date is Wednesday during business hours
-    if (isWithinWednesdayBusinessHours()) {
-      setShowWednesdayWarning(true);
-      return;
-    }
-
     setDate(newDate);
   };
 
   const changeView = (newView: View) => {
-    // Check if current time is Wednesday during business hours
-    if (isWithinWednesdayBusinessHours()) {
-      setShowWednesdayWarning(true);
-      return;
-    }
     setView(newView);
-  };
-
-  // Add new function to check if a date is Wednesday
-  const isDateWednesday = (date: Date) => {
-    return isWednesday(date);
   };
 
   return (
@@ -369,53 +323,53 @@ export default function AppointmentsPage() {
       <SidebarInset>
         <SiteHeader />
         <div className="flex flex-1 flex-col gap-2">
-          <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-            <div className="px-4 lg:px-6">
-              <div className="flex justify-between items-center mb-4">
-                <div>
+            <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+              <div className="px-4 lg:px-6">
+                <div className="flex justify-between items-center mb-4">
+                  <div>
                   <h1 className="text-3xl font-bold">Appointments</h1>
                   <p className="text-slate-600">Manage patient appointments and schedule</p>
-                </div>
-                <Button 
-                  className="bg-violet-600 hover:bg-violet-700"
-                  onClick={() => {
-                    setNewAppointment({
-                      patientId: '',
-                      title: '',
-                      date: new Date(),
-                      startTime: '09:00',
-                      endTime: '10:00',
-                    });
-                    setShowAppointmentModal(true);
-                  }}
-                >
-                  New Appointment
-                </Button>
-              </div>
-            </div>
-            <div className="px-4 lg:px-6 grid grid-cols-1 md:grid-cols-4 gap-4">
-              {/* Left sidebar with upcoming appointments */}
-              <Card className="md:col-span-1">
-                <CardHeader>
-                  <CardTitle>Upcoming</CardTitle>
-                  <CardDescription>Today's appointments</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    {todaysAppointments.map(event => (
-                      <div key={event.id} className="p-2 border rounded-md">
-                        <div className="font-medium">{event.title}</div>
-                        <div className="text-sm text-slate-500">
-                          {format(event.start, 'h:mm a')} - {format(event.end, 'h:mm a')}
-                        </div>
-                      </div>
-                    ))}
-                    {todaysAppointments.length === 0 && (
-                      <div className="text-center py-4 text-slate-500">No appointments today</div>
-                    )}
                   </div>
-                </CardContent>
-              </Card>
+                  <Button 
+                    className="bg-violet-600 hover:bg-violet-700"
+                    onClick={() => {
+                      setNewAppointment({
+                      patientId: '',
+                        title: '',
+                      date: new Date(),
+                        startTime: '09:00',
+                        endTime: '10:00',
+                      });
+                      setShowAppointmentModal(true);
+                    }}
+                  >
+                    New Appointment
+                  </Button>
+                </div>
+              </div>
+              <div className="px-4 lg:px-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+                {/* Left sidebar with upcoming appointments */}
+                <Card className="md:col-span-1">
+                  <CardHeader>
+                    <CardTitle>Upcoming</CardTitle>
+                    <CardDescription>Today's appointments</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                    {todaysAppointments.map(event => (
+                          <div key={event.id} className="p-2 border rounded-md">
+                            <div className="font-medium">{event.title}</div>
+                            <div className="text-sm text-slate-500">
+                              {format(event.start, 'h:mm a')} - {format(event.end, 'h:mm a')}
+                            </div>
+                          </div>
+                        ))}
+                    {todaysAppointments.length === 0 && (
+                        <div className="text-center py-4 text-slate-500">No appointments today</div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
               {/* Main calendar using react-big-calendar */}
               <div className="md:col-span-3 h-[calc(100vh-250px)] bg-white rounded-lg shadow p-2">
                 <Tabs defaultValue="active" className="w-full">
@@ -464,23 +418,19 @@ export default function AppointmentsPage() {
                           </Button>
                         </div>
                       </div>
-                      <Calendar
-                        localizer={localizer}
-                        events={events}
-                        startAccessor="start"
-                        endAccessor="end"
+                    <Calendar
+                      localizer={localizer}
+                      events={events}
+                      startAccessor="start"
+                      endAccessor="end"
                         style={{ height: 'calc(100% - 60px)' }}
-                        onSelectEvent={handleSelectEvent}
-                        onSelectSlot={handleSelectSlot}
-                        selectable
+                      onSelectEvent={handleSelectEvent}
+                      onSelectSlot={handleSelectSlot}
+                      selectable
                         view={view}
                         onView={changeView}
                         date={date}
                         onNavigate={(newDate) => {
-                          if (isDateWednesday(newDate)) {
-                            setShowWednesdayWarning(true);
-                            return;
-                          }
                           setDate(newDate);
                         }}
                         min={new Date(0, 0, 0, 9, 0, 0)}
@@ -495,9 +445,6 @@ export default function AppointmentsPage() {
                         toolbar={false}
                         popup
                         showMultiDayTimes={false}
-                        dayPropGetter={(date) => ({
-                          className: isDateWednesday(date) ? 'rbc-wednesday' : ''
-                        })}
                       />
                     </div>
                   </TabsContent>
@@ -756,31 +703,6 @@ export default function AppointmentsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Wednesday Warning Modal */}
-      <AlertDialog open={showWednesdayWarning} onOpenChange={setShowWednesdayWarning}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Clinic Closed</AlertDialogTitle>
-            <AlertDialogDescription>
-              The clinic is currently closed on Wednesdays from 9:00 AM to 7:00 PM. Please select a different day or time.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogAction onClick={() => {
-              setShowWednesdayWarning(false);
-              // Move to the next day if it's Wednesday
-              const nextDate = new Date();
-              if (isWednesday(nextDate)) {
-                nextDate.setDate(nextDate.getDate() + 1);
-                setDate(nextDate);
-              }
-            }}>
-              OK
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </SidebarProvider>
   );
 } 

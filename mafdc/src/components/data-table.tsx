@@ -197,9 +197,9 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
     accessorKey: "gender",
     header: "Gender",
     cell: ({ row }) => (
-      <Badge variant="outline" className="text-violet-600 border-violet-200 px-1.5">
+        <Badge variant="outline" className="text-violet-600 border-violet-200 px-1.5">
         {row.original.gender}
-      </Badge>
+        </Badge>
     ),
     size: 100,
   },
@@ -255,13 +255,13 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
       };
       
       return (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="h-8 w-8 p-0">
               <IconDotsVertical className="h-4 w-4" />
-              <span className="sr-only">Open menu</span>
-            </Button>
-          </DropdownMenuTrigger>
+            <span className="sr-only">Open menu</span>
+          </Button>
+        </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={handleViewProfile} disabled={isNavigating}>
               <IconEye className="mr-2 h-4 w-4" />
@@ -271,13 +271,13 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
               <IconPencil className="mr-2 h-4 w-4" />
               Update
             </DropdownMenuItem>
-            <DropdownMenuSeparator />
+          <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleArchive} className="text-red-600">
               <IconArchive className="mr-2 h-4 w-4" />
               Archive
             </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        </DropdownMenuContent>
+      </DropdownMenu>
       );
     },
     size: 80,
@@ -600,7 +600,7 @@ export function DataTable({
             </div>
           </div>
         </div>
-      </div>
-    </div>
+              </div>
+            </div>
   )
 }
