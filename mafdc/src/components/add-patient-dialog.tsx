@@ -265,15 +265,14 @@ export function AddPatientDialog({ onPatientAdded }: AddPatientDialogProps) {
                             </FormControl>
                             <SelectContent>
                               <SelectItem value="Orthodontic Braces">Orthodontic Braces</SelectItem>
-                              <SelectItem value="Cleaning">Cleaning</SelectItem>
+                              <SelectItem value="Cleaning/Oral Prophylaxis">Cleaning/Oral Prophylaxis</SelectItem>
                               <SelectItem value="Extraction">Extraction</SelectItem>
-                              <SelectItem value="Filling">Filling</SelectItem>
-                              <SelectItem value="Root Canal">Root Canal</SelectItem>
-                              <SelectItem value="Crown">Crown</SelectItem>
-                              <SelectItem value="Bridge">Bridge</SelectItem>
+                              <SelectItem value="Teeth Whitening">Teeth Whitening</SelectItem>
+                              <SelectItem value="Restoration/Pasta">Restoration/Pasta</SelectItem>
+                              <SelectItem value="Dental Crown">Dental Crown</SelectItem>
+                              <SelectItem value="Fixed Bridge">Fixed Bridge</SelectItem>
+                              <SelectItem value="Veneers">Veneers</SelectItem>
                               <SelectItem value="Denture">Denture</SelectItem>
-                              <SelectItem value="Implant">Implant</SelectItem>
-                              <SelectItem value="Other">Other</SelectItem>
                             </SelectContent>
                           </Select>
                           <FormMessage />
