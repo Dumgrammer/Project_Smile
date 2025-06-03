@@ -17,12 +17,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { useAppointments } from '@/hooks/appointments/appointmentHooks';
+import { useAppointments, AppointmentNotes } from '@/hooks/appointments/appointmentHooks';
 import { PatientSearch } from "@/components/patient-search";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { useRouter, usePathname } from 'next/navigation';
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { CheckCircle2 } from "lucide-react";
 
 const locales = {
   'en-US': enUS,
@@ -103,7 +106,10 @@ export default function AppointmentsPage() {
     createAppointment, 
     updateAppointment, 
     cancelAppointment,
-    getArchivedAppointments
+    completeAppointment,
+    getArchivedAppointments,
+    createAppointmentNotes,
+    rescheduleAppointment
   } = useAppointments();
 
   const [events, setEvents] = useState<any[]>([]);
@@ -121,6 +127,17 @@ export default function AppointmentsPage() {
   const [view, setView] = useState<View>(Views.WEEK);
   const [date, setDate] = useState(new Date());
   const [key, setKey] = useState(0);
+  const [showNotesModal, setShowNotesModal] = useState(false);
+  const [appointmentNotes, setAppointmentNotes] = useState<AppointmentNotes>({
+    treatmentNotes: '',
+    reminderNotes: '',
+    payment: {
+      amount: 0,
+      status: 'Pending'
+    }
+  });
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
 
   useEffect(() => {
     setKey(prev => prev + 1);
@@ -160,6 +177,9 @@ export default function AppointmentsPage() {
           allDay: false,
           status: apt.status,
           patient: apt.patient,
+          date: dateStr, // Store the formatted date
+          startTime: apt.startTime,
+          endTime: apt.endTime
         };
       });
       
@@ -198,9 +218,10 @@ export default function AppointmentsPage() {
         endTime: newAppointment.endTime,
       });
       
-      toast.success('Appointment created successfully');
+      setSuccessMessage('Appointment created successfully and confirmation email has been sent to the patient');
+      setShowSuccessModal(true);
       setShowAppointmentModal(false);
-      fetchAppointments(); // Refresh the appointments list
+      fetchAppointments();
     } catch (err) {
       console.error('Failed to create appointment:', err);
       toast.error('Failed to create appointment');
@@ -216,14 +237,48 @@ export default function AppointmentsPage() {
     if (!selectedAppointment) return;
 
     try {
-      await updateAppointment(selectedAppointment.id, {
-        date: format(selectedAppointment.start, 'yyyy-MM-dd'),
-        startTime: format(selectedAppointment.start, 'HH:mm'),
-        endTime: format(selectedAppointment.end, 'HH:mm'),
-        title: selectedAppointment.title,
-      });
+      // Get the original appointment date and time
+      const originalDate = selectedAppointment.date;
+      const originalStartTime = selectedAppointment.startTime;
+      const originalEndTime = selectedAppointment.endTime;
+
+      // Get the new date and time
+      let newDate, newStartTime, newEndTime;
       
-      toast.success('Appointment updated successfully');
+      try {
+        newDate = format(selectedAppointment.start, 'yyyy-MM-dd');
+        newStartTime = format(selectedAppointment.start, 'HH:mm');
+        newEndTime = format(selectedAppointment.end, 'HH:mm');
+      } catch (dateError) {
+        console.error('Date formatting error:', dateError);
+        toast.error('Invalid date or time values');
+        return;
+      }
+
+      // Check if any time or date has changed
+      const isRescheduling = 
+        newDate !== originalDate ||
+        newStartTime !== originalStartTime ||
+        newEndTime !== originalEndTime;
+
+      if (isRescheduling) {
+        // Use the reschedule endpoint
+        await rescheduleAppointment(selectedAppointment.id, {
+          date: newDate,
+          startTime: newStartTime,
+          endTime: newEndTime,
+          title: selectedAppointment.title
+        });
+        setSuccessMessage('Appointment rescheduled successfully and notification has been sent to the patient');
+      } else {
+        // Use the regular update endpoint
+        await updateAppointment(selectedAppointment.id, {
+          title: selectedAppointment.title
+        });
+        setSuccessMessage('Appointment updated successfully');
+      }
+      
+      setShowSuccessModal(true);
       setShowEditModal(false);
       fetchAppointments();
     } catch (err) {
@@ -232,17 +287,64 @@ export default function AppointmentsPage() {
     }
   };
 
-  const handleCancelAppointment = async () => {
-    if (!selectedAppointment) return;
-
+  const handleCancelAppointment = async (appointmentId: string) => {
     try {
-      await cancelAppointment(selectedAppointment.id);
-      toast.success('Appointment cancelled successfully');
+      await cancelAppointment(appointmentId);
+      setSuccessMessage('Appointment cancelled successfully');
+      setShowSuccessModal(true);
       setShowEditModal(false);
       fetchAppointments();
     } catch (err) {
       console.error('Failed to cancel appointment:', err);
       toast.error('Failed to cancel appointment');
+    }
+  };
+
+  const handleCompleteAppointment = async (appointmentId: string) => {
+    try {
+      const updatedAppointment = events.find(e => e.id === appointmentId);
+      if (updatedAppointment) {
+        setSelectedAppointment({
+          ...updatedAppointment,
+          status: 'Finished'
+        });
+        // Just update UI state without API call
+        await completeAppointment(appointmentId);
+        setSuccessMessage('Appointment marked as completed. Please add notes to finalize.');
+        setShowSuccessModal(true);
+        setShowNotesModal(true);
+      }
+    } catch (err) {
+      console.error('Failed to complete appointment:', err);
+      toast.error('Failed to complete appointment');
+    }
+  };
+
+  const handleSaveNotes = async () => {
+    if (!selectedAppointment) return;
+
+    try {
+      // Complete appointment with notes - this will make the actual API calls
+      await completeAppointment(selectedAppointment.id, appointmentNotes);
+      setSuccessMessage('Appointment completed and notes saved successfully');
+      setShowSuccessModal(true);
+      setShowNotesModal(false);
+      setAppointmentNotes({
+        treatmentNotes: '',
+        reminderNotes: '',
+        payment: {
+          amount: 0,
+          status: 'Pending'
+        }
+      });
+      fetchAppointments();
+    } catch (err: any) {
+      console.error('Failed to save appointment notes:', err);
+      if (err.message === 'Please log in to save notes') {
+        toast.error('Please log in to save notes');
+      } else {
+        toast.error(err.message || 'Failed to save appointment notes');
+      }
     }
   };
 
@@ -361,6 +463,42 @@ export default function AppointmentsPage() {
                             <div className="font-medium">{event.title}</div>
                             <div className="text-sm text-slate-500">
                               {format(event.start, 'h:mm a')} - {format(event.end, 'h:mm a')}
+                            </div>
+                            <div className="mt-2 flex gap-2">
+                              {event.status === 'Scheduled' && (
+                                <>
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm"
+                                    onClick={() => handleCompleteAppointment(event.id)}
+                                  >
+                                    Complete
+                                  </Button>
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm"
+                                    onClick={() => {
+                                      setSelectedAppointment(event);
+                                      setShowEditModal(true);
+                                    }}
+                                  >
+                                    Reschedule
+                                  </Button>
+                                  <Button 
+                                    variant="destructive" 
+                                    size="sm"
+                                    onClick={() => handleCancelAppointment(event.id)}
+                                  >
+                                    Cancel
+                                  </Button>
+                                </>
+                              )}
+                              {event.status === 'Finished' && (
+                                <Badge className="bg-green-500">Completed</Badge>
+                              )}
+                              {event.status === 'Cancelled' && (
+                                <Badge variant="destructive">Cancelled</Badge>
+                              )}
                             </div>
                           </div>
                         ))}
@@ -687,19 +825,129 @@ export default function AppointmentsPage() {
           <DialogFooter className="flex justify-between">
             <Button 
               variant="destructive" 
-              onClick={handleCancelAppointment}
-              disabled={selectedAppointment?.status === 'Cancelled'}
+              onClick={() => {
+                setSelectedAppointment(null);
+                setShowEditModal(false);
+              }}
             >
-              Cancel Appointment
+              Cancel
             </Button>
             <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setShowEditModal(false)}>
-                Close
-              </Button>
               <Button onClick={handleUpdateAppointment}>
                 Save Changes
               </Button>
             </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Notes Modal */}
+      <Dialog open={showNotesModal} onOpenChange={setShowNotesModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl">Appointment Notes</DialogTitle>
+          </DialogHeader>
+          {selectedAppointment && (
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label>Patient</Label>
+                <div className="text-sm font-medium py-2 px-3 border rounded-md bg-gray-50">
+                  {selectedAppointment.patient.firstName} {selectedAppointment.patient.lastName}
+                </div>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="treatmentNotes">Treatment Notes</Label>
+                <Textarea
+                  id="treatmentNotes"
+                  placeholder="Enter treatment details..."
+                  value={appointmentNotes.treatmentNotes}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setAppointmentNotes({
+                    ...appointmentNotes,
+                    treatmentNotes: e.target.value
+                  })}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="reminderNotes">Reminder Notes</Label>
+                <Textarea
+                  id="reminderNotes"
+                  placeholder="Enter any reminders or follow-up notes..."
+                  value={appointmentNotes.reminderNotes}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setAppointmentNotes({
+                    ...appointmentNotes,
+                    reminderNotes: e.target.value
+                  })}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="paymentAmount">Payment Amount</Label>
+                <Input
+                  id="paymentAmount"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={appointmentNotes.payment.amount}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAppointmentNotes({
+                    ...appointmentNotes,
+                    payment: {
+                      ...appointmentNotes.payment,
+                      amount: parseFloat(e.target.value) || 0
+                    }
+                  })}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="paymentStatus">Payment Status</Label>
+                <Select
+                  value={appointmentNotes.payment.status}
+                  onValueChange={(value: 'Paid' | 'Pending' | 'Partial') => setAppointmentNotes({
+                    ...appointmentNotes,
+                    payment: {
+                      ...appointmentNotes.payment,
+                      status: value
+                    }
+                  })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select payment status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Paid">Paid</SelectItem>
+                    <SelectItem value="Pending">Pending</SelectItem>
+                    <SelectItem value="Partial">Partial</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowNotesModal(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveNotes}>
+              Save Notes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Success Modal */}
+      <Dialog open={showSuccessModal} onOpenChange={setShowSuccessModal}>
+        <DialogContent className="sm:max-w-md">
+          <div className="flex flex-col items-center justify-center py-6">
+            <CheckCircle2 className="h-16 w-16 text-green-500 mb-4" />
+            <DialogTitle className="text-xl text-center">{successMessage}</DialogTitle>
+            <p className="text-sm text-gray-500 text-center mt-2">
+              The changes have been saved successfully.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button 
+              className="w-full" 
+              onClick={() => setShowSuccessModal(false)}
+            >
+              Close
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
