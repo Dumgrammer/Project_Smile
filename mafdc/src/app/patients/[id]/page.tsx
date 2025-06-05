@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { usePatients } from '@/hooks/patients/patientHooks';
 import { AppSidebar } from "@/components/app-sidebar";
@@ -36,6 +36,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { useNotes } from '@/hooks/notes/notesHooks';
 
 interface Patient {
   _id: string;
@@ -69,6 +70,30 @@ interface Patient {
   }>;
 }
 
+const formatDate = (dateString?: string) => {
+  if (!dateString) return 'N/A';
+  try {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+  } catch (error) {
+    return 'Invalid Date';
+  }
+};
+
+const formatMonthYear = (dateString: string) => {
+  try {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+    });
+  } catch (error) {
+    return 'Invalid Date';
+  }
+};
+
 export default function PatientDetails({
   params,
 }: {
@@ -77,12 +102,52 @@ export default function PatientDetails({
   const router = useRouter();
   const { getPatientById } = usePatients();
   const { loading: appointmentsLoading, error: appointmentsError, getPatientAppointments } = usePatientAppointments();
+  const { loading: notesLoading, error: notesError, getPatientNotes } = useNotes();
   const [patient, setPatient] = useState<Patient | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [appointments, setAppointments] = useState<any[]>([]);
+  const [notes, setNotes] = useState<any[]>([]);
   const [sortBy, setSortBy] = useState('date');
+  const [notesSortBy, setNotesSortBy] = useState('newest');
   const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [selectedMonthYear, setSelectedMonthYear] = useState('All');
+
+  // Group notes by month and year
+  const groupedNotes = useMemo(() => {
+    const groups: { [key: string]: { [key: string]: any[] } } = {};
+    notes.forEach(note => {
+      const monthYear = formatMonthYear(note.appointment.date);
+      const date = formatDate(note.appointment.date);
+      
+      if (!groups[monthYear]) {
+        groups[monthYear] = {};
+      }
+      if (!groups[monthYear][date]) {
+        groups[monthYear][date] = [];
+      }
+      groups[monthYear][date].push(note);
+    });
+    return groups;
+  }, [notes]);
+
+  // Get all unique month/year options for the dropdown
+  const monthYearOptions = useMemo(() => {
+    const options = new Set<string>();
+    notes.forEach(note => {
+      const monthYear = formatMonthYear(note.appointment.date);
+      options.add(monthYear);
+    });
+    return ['All', ...Array.from(options)];
+  }, [notes]);
+
+  // Filter notes by selected month/year
+  const filteredGroupedNotes = useMemo(() => {
+    if (selectedMonthYear === 'All') return groupedNotes;
+    return {
+      [selectedMonthYear]: groupedNotes[selectedMonthYear] || {}
+    };
+  }, [groupedNotes, selectedMonthYear]);
 
   // Unwrap the params promise
   const resolvedParams = use(params);
@@ -127,6 +192,10 @@ export default function PatientDetails({
     fetchPatientAppointments();
   }, [resolvedParams.id, sortBy]);
 
+  useEffect(() => {
+    fetchPatientNotes();
+  }, [resolvedParams.id, notesSortBy]);
+
   const fetchPatientAppointments = async () => {
     try {
       const data = await getPatientAppointments(resolvedParams.id, sortBy);
@@ -136,16 +205,22 @@ export default function PatientDetails({
     }
   };
 
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return 'N/A';
+  const fetchPatientNotes = async () => {
     try {
-      return new Date(dateString).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
+      const data = await getPatientNotes(resolvedParams.id);
+      // Sort notes based on the selected option
+      const sortedNotes = [...data].sort((a, b) => {
+        switch (notesSortBy) {
+          case 'oldest':
+            return new Date(a.appointment.date).getTime() - new Date(b.appointment.date).getTime();
+          case 'newest':
+          default:
+            return new Date(b.appointment.date).getTime() - new Date(a.appointment.date).getTime();
+        }
       });
-    } catch (error) {
-      return 'Invalid Date';
+      setNotes(sortedNotes);
+    } catch (err) {
+      console.error('Failed to fetch patient notes:', err);
     }
   };
 
@@ -187,29 +262,30 @@ export default function PatientDetails({
           <div className="@container/main flex flex-1 flex-col gap-2">
             <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
               <div className="px-4 lg:px-6">
-                <div className="flex justify-between items-center mb-4">
+                <div className="flex flex-col gap-2 mb-4 md:flex-row md:gap-2 md:items-center md:justify-between">
                   <Button 
                     variant="outline" 
                     size="sm"
                     onClick={() => router.back()}
+                    className="w-full md:w-auto"
                   >
                     <IconArrowLeft className="mr-2 h-4 w-4" />
                     Back to Patients
                   </Button>
-                  <div className="flex gap-2">
-                    <Button 
-                      variant="outline"
-                      onClick={() => setShowHistoryModal(true)}
-                    >
-                      View History
-                    </Button>
-                    <Button 
-                      variant="outline"
-                      onClick={() => router.push(`/appointments?patientId=${resolvedParams.id}`)}
-                    >
-                      Schedule Appointment
-                    </Button>
-                  </div>
+                  <Button 
+                    variant="outline"
+                    onClick={() => setShowHistoryModal(true)}
+                    className="w-full md:w-auto"
+                  >
+                    View History
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    onClick={() => router.push(`/appointments?patientId=${resolvedParams.id}`)}
+                    className="w-full md:w-auto"
+                  >
+                    Schedule Appointment
+                  </Button>
                 </div>
                 
                 <div className="flex justify-between items-center">
@@ -302,7 +378,7 @@ export default function PatientDetails({
                   </div>
 
                   <div className="bg-white p-6 rounded-lg shadow-md border border-slate-200">
-                    <h2 className="text-xl font-semibold mb-4 text-violet-800">Medical Information</h2>
+                    <h2 className="text-xl font-semibold mb-4 text-violet-800">Medical History</h2>
                     <div className="space-y-3">
                       <div>
                         <p className="text-sm text-slate-500">Allergies</p>
@@ -310,9 +386,91 @@ export default function PatientDetails({
                       </div>
                       <div>
                         <p className="text-sm text-slate-500">Last Visit</p>
-                        <p className="font-medium">{patient.lastVisit ? formatDate(patient.lastVisit) : 'No previous visits'}</p>
+                        <p className="font-medium">{formatDate(patient.lastVisit)}</p>
                       </div>
                     </div>
+                  </div>
+
+                  <div className="bg-white p-4 md:p-6 rounded-lg shadow-md border border-slate-200 md:col-span-2">
+                    <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-4 gap-2">
+                      <h2 className="text-lg md:text-xl font-semibold text-violet-800">Treatment Notes</h2>
+                      <Select
+                        value={selectedMonthYear}
+                        onValueChange={setSelectedMonthYear}
+                      >
+                        <SelectTrigger className="w-full md:w-[220px]">
+                          <SelectValue placeholder="Sort by Month/Year" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {monthYearOptions.map((option) => (
+                            <SelectItem key={option} value={option}>{option}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {notesLoading ? (
+                      <div className="flex justify-center py-4">
+                        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-violet-600"></div>
+                      </div>
+                    ) : notes.length === 0 ? (
+                      <p className="text-slate-500 text-center py-4">No treatment notes available</p>
+                    ) : (
+                      <div className="space-y-8">
+                        {Object.entries(filteredGroupedNotes).map(([monthYear, dates]) => (
+                          <div key={monthYear} className="space-y-4">
+                            <div className="flex items-center">
+                              <div className="h-px bg-slate-200 flex-1"></div>
+                              <span className="px-4 text-lg font-semibold text-violet-700">{monthYear}</span>
+                              <div className="h-px bg-slate-200 flex-1"></div>
+                            </div>
+                            <div className="space-y-6">
+                              {Object.entries(dates).map(([date, dateNotes]) => (
+                                <div key={date} className="space-y-4">
+                                  <div className="flex items-center">
+                                    <div className="h-px bg-slate-200 flex-1"></div>
+                                    <span className="px-4 text-sm font-medium text-slate-500">{date}</span>
+                                    <div className="h-px bg-slate-200 flex-1"></div>
+                                  </div>
+                                  <div className="space-y-4 pl-4 border-l-2 border-violet-200">
+                                    {dateNotes.map((note) => (
+                                      <div key={note._id} className="border rounded-lg p-4 bg-white">
+                                        <div className="flex justify-between items-start mb-2">
+                                          <div>
+                                            <h3 className="font-medium">{note.appointment.title}</h3>
+                                            <p className="text-sm text-slate-500">
+                                              {note.appointment.startTime} - {note.appointment.endTime}
+                                            </p>
+                                          </div>
+                                          <Badge variant={note.payment.status === 'Paid' ? 'default' : 'secondary'}>
+                                            {note.payment.status}
+                                          </Badge>
+                                        </div>
+                                        <div className="space-y-2">
+                                          <div>
+                                            <p className="text-sm font-medium text-slate-700">Treatment Notes</p>
+                                            <p className="text-sm text-slate-600">{note.treatmentNotes}</p>
+                                          </div>
+                                          {note.reminderNotes && (
+                                            <div>
+                                              <p className="text-sm font-medium text-slate-700">Reminder Notes</p>
+                                              <p className="text-sm text-slate-600">{note.reminderNotes}</p>
+                                            </div>
+                                          )}
+                                          <div className="flex justify-between items-center text-sm text-slate-500">
+                                            <span>Amount: ₱{note.payment.amount.toFixed(2)}</span>
+                                            <span>Added by: {note.createdBy.firstName} {note.createdBy.lastName}</span>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
 

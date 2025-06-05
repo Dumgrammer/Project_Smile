@@ -10,91 +10,105 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 
-export function SectionCards() {
+export interface SectionCardsProps {
+  totalVisitors?: number;
+  activePatients?: number;
+  totalRevenue?: number;
+  growthRate?: number;
+  loading?: boolean;
+  error?: string | null;
+}
+
+export function SectionCards({
+  totalVisitors,
+  activePatients,
+  totalRevenue,
+  growthRate,
+  loading,
+  error,
+}: SectionCardsProps) {
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-32">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-violet-600"></div>
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className="flex justify-center items-center h-32 text-red-500">
+        {error}
+      </div>
+    );
+  }
   return (
     <div className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-1 gap-4 px-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
       <Card className="@container/card border border-slate-200 shadow-sm">
         <CardHeader>
-          <CardDescription className="text-slate-500">Total Revenue</CardDescription>
+          <CardDescription className="text-slate-500">Total Visitors (This Month)</CardDescription>
           <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-          ₱1,250.00
+            {totalVisitors ?? '--'}
           </CardTitle>
           <CardAction>
-            <Badge variant="outline" className="text-green-600 border-slate-200">
-              <IconTrendingUp className="text-green-500" />
-              +12.5%
+            <Badge variant="outline" className="text-violet-600 border-slate-200">
+              <IconTrendingUp className="text-violet-500" />
+              This Month
             </Badge>
           </CardAction>
         </CardHeader>
         <CardFooter className="flex-col items-start gap-1.5 text-sm">
-          <div className="line-clamp-1 flex gap-2 font-medium">
-            Trending up this month <IconTrendingUp className="size-4 text-green-500" />
-          </div>
-          <div className="text-slate-500">
-            Visitors for the last 6 months
-          </div>
+          <div className="text-slate-500">Unique patients with appointments this month</div>
         </CardFooter>
       </Card>
       <Card className="@container/card border border-slate-200 shadow-sm">
         <CardHeader>
-          <CardDescription className="text-slate-500">New Customers</CardDescription>
+          <CardDescription className="text-slate-500">Active Patients</CardDescription>
           <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-            1,234
-          </CardTitle>
-          <CardAction>
-            <Badge variant="outline" className="text-red-600 border-slate-200">
-              <IconTrendingDown className="text-red-500" />
-              -20%
-            </Badge>
-          </CardAction>
-        </CardHeader>
-        <CardFooter className="flex-col items-start gap-1.5 text-sm">
-          <div className="line-clamp-1 flex gap-2 font-medium">
-            Down 20% this period <IconTrendingDown className="size-4 text-red-500" />
-          </div>
-          <div className="text-slate-500">
-            Acquisition needs attention
-          </div>
-        </CardFooter>
-      </Card>
-      <Card className="@container/card border border-slate-200 shadow-sm">
-        <CardHeader>
-          <CardDescription className="text-slate-500">Active Accounts</CardDescription>
-          <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-            45,678
+            {activePatients ?? '--'}
           </CardTitle>
           <CardAction>
             <Badge variant="outline" className="text-green-600 border-slate-200">
               <IconTrendingUp className="text-green-500" />
-              +12.5%
+              Active
             </Badge>
           </CardAction>
         </CardHeader>
         <CardFooter className="flex-col items-start gap-1.5 text-sm">
-          <div className="line-clamp-1 flex gap-2 font-medium">
-            Strong user retention <IconTrendingUp className="size-4 text-green-500" />
-          </div>
-          <div className="text-slate-500">Engagement exceed targets</div>
+          <div className="text-slate-500">Currently active patient records</div>
+        </CardFooter>
+      </Card>
+      <Card className="@container/card border border-slate-200 shadow-sm">
+        <CardHeader>
+          <CardDescription className="text-slate-500">Total Revenue (Paid)</CardDescription>
+          <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+            ₱{totalRevenue?.toLocaleString(undefined, { minimumFractionDigits: 2 }) ?? '--'}
+          </CardTitle>
+          <CardAction>
+            <Badge variant="outline" className="text-green-600 border-slate-200">
+              <IconTrendingUp className="text-green-500" />
+              Paid
+            </Badge>
+          </CardAction>
+        </CardHeader>
+        <CardFooter className="flex-col items-start gap-1.5 text-sm">
+          <div className="text-slate-500">Revenue from paid notes this month</div>
         </CardFooter>
       </Card>
       <Card className="@container/card border border-slate-200 shadow-sm">
         <CardHeader>
           <CardDescription className="text-slate-500">Growth Rate</CardDescription>
           <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-            4.5%
+            {growthRate !== undefined && growthRate !== null ? `${growthRate}%` : '--'}
           </CardTitle>
           <CardAction>
             <Badge variant="outline" className="text-violet-600 border-slate-200">
               <IconTrendingUp className="text-violet-500" />
-              +4.5%
+              {growthRate !== undefined && growthRate !== null && growthRate >= 0 ? `+${growthRate}%` : `${growthRate}%`}
             </Badge>
           </CardAction>
         </CardHeader>
         <CardFooter className="flex-col items-start gap-1.5 text-sm">
-          <div className="line-clamp-1 flex gap-2 font-medium">
-            Steady performance increase <IconTrendingUp className="size-4 text-violet-500" />
-          </div>
-          <div className="text-slate-500">Meets growth projections</div>
+          <div className="text-slate-500">Revenue growth compared to last month</div>
         </CardFooter>
       </Card>
     </div>

@@ -29,37 +29,18 @@ export default function Home() {
               </p>
               <div className="flex flex-col sm:flex-row gap-4 pt-4">
                 <Button className="bg-violet-600 hover:bg-violet-700 text-white px-8 py-6 h-auto text-base font-medium">
-                  Book an Appointment
+                  Look at your records
                 </Button>
+                <Link href="/services">
                 <Button variant="outline" className="border-violet-300 hover:bg-violet-50 text-violet-700 px-8 py-6 h-auto text-base font-medium">
                   Our Services
                 </Button>
+                </Link>
               </div>
             </div>
             <div className="hidden lg:flex relative h-[500px] rounded-2xl overflow-hidden shadow-xl bg-gradient-to-br from-violet-500 to-violet-800 justify-center items-center">
-              <div className="absolute inset-0 opacity-10 bg-[url('/grid-pattern.svg')]"></div>
               <div className="text-white text-center px-8 z-10">
-                <svg 
-                  xmlns="http://www.w3.org/2000/svg" 
-                  width="80" 
-                  height="80" 
-                  viewBox="0 0 24 24" 
-                  fill="none" 
-                  stroke="currentColor" 
-                  strokeWidth="2" 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round"
-                  className="mx-auto mb-6 opacity-80"
-                >
-                  <path d="M17.4 19.8H6.6a2.4 2.4 0 0 1-2.4-2.4V10.6c0-3.5 2.9-6.4 6.4-6.4h2.8c3.5 0 6.4 2.9 6.4 6.4v6.8a2.4 2.4 0 0 1-2.4 2.4Z"/>
-                  <path d="M10 15.6V11a2 2 0 0 1 4 0v4.6"/>
-                </svg>
-                <p className="text-lg font-medium">Dental care you can trust</p>
-                <div className="mt-4 flex justify-center space-x-2">
-                  <span className="w-3 h-3 rounded-full bg-white opacity-60"></span>
-                  <span className="w-3 h-3 rounded-full bg-white opacity-90"></span>
-                  <span className="w-3 h-3 rounded-full bg-white opacity-60"></span>
-                </div>
+                <Image src="/Mafdc.jpg" alt="MA Florencio Dental Clinic Logo" width={800} height={800} className="rounded-lg" />
               </div>
             </div>
           </div>

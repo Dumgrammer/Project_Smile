@@ -476,41 +476,66 @@ export function DataTable({
             sensors={sensors}
             id={sortableId}
           >
-            <Table className="border-collapse">
+            <Table className="border-collapse min-w-full text-xs md:text-sm">
               <TableHeader className="bg-zinc-800 text-white border-b border-zinc-700/50">
-                {table.getHeaderGroups().map((headerGroup) => (
-                  <TableRow key={headerGroup.id}>
-                    {headerGroup.headers.map((header) => {
-                      return (
-                        <TableHead key={header.id} colSpan={header.colSpan} className="text-zinc-100">
-                          {header.isPlaceholder
-                            ? null
-                            : flexRender(
-                                header.column.columnDef.header,
-                                header.getContext()
-                              )}
-                        </TableHead>
-                      )
-                    })}
-                  </TableRow>
-                ))}
+                <TableRow>
+                  {/* Mobile: Name, Number, and Actions header in a single row */}
+                  <TableHead colSpan={3} className="block md:hidden p-2 text-white align-middle">
+                    <div className="flex flex-row items-center justify-between w-full">
+                      <span className="font-semibold w-1/3 text-left">Name</span>
+                      <span className="font-semibold w-1/3 text-center">Number</span>
+                      <span className="font-semibold w-1/3 text-right">Actions</span>
+                    </div>
+                  </TableHead>
+                  {/* Desktop: Show all headers */}
+                  {table.getHeaderGroups().map((headerGroup) =>
+                    headerGroup.headers.map((header) => (
+                      <TableHead key={header.id} colSpan={header.colSpan} className="hidden md:table-cell text-zinc-100">
+                        {header.isPlaceholder
+                          ? null
+                          : flexRender(
+                              header.column.columnDef.header,
+                              header.getContext()
+                            )}
+                      </TableHead>
+                    ))
+                  )}
+                </TableRow>
               </TableHeader>
-              <TableBody className="**:data-[slot=table-cell]:first:w-8 bg-white/5">
-                {table.getRowModel().rows?.length ? (
-                  <SortableContext
-                    items={dataIds}
-                    strategy={verticalListSortingStrategy}
-                  >
-                    {table.getRowModel().rows.map((row) => (
-                      <DraggableRow key={row.id} row={row} />
-                    ))}
-                  </SortableContext>
+              <TableBody>
+                {table.getRowModel().rows.length ? (
+                  table.getRowModel().rows.map((row) => (
+                    <TableRow key={row.id}>
+                      {/* Mobile: Name, Number, and Actions in a single row */}
+                      <TableCell colSpan={3} className="block md:hidden p-2 align-middle">
+                        <div className="flex flex-row items-center justify-between w-full">
+                          <span className="w-1/3 text-violet-700 font-medium whitespace-normal break-words text-left">
+                            {row.original.firstName} {row.original.lastName}
+                          </span>
+                          <span className="w-1/3 text-xs text-gray-500 text-center">
+                            {row.original.contactNumber}
+                          </span>
+                          <span className="w-1/3 flex justify-end">
+                            {(() => {
+                              const cell = row.getVisibleCells().find(cell => cell.column.id === 'actions');
+                              return cell
+                                ? flexRender(cell.column.columnDef.cell, cell.getContext())
+                                : null;
+                            })()}
+                          </span>
+                        </div>
+                      </TableCell>
+                      {/* Desktop: Show all cells */}
+                      {row.getVisibleCells().map((cell) => (
+                        <TableCell key={cell.id} className="hidden md:table-cell border-b border-slate-200 p-4">
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))
                 ) : (
                   <TableRow>
-                    <TableCell
-                      colSpan={columns.length}
-                      className="h-24 text-center text-violet-300 italic"
-                    >
+                    <TableCell colSpan={table.getAllColumns().length} className="h-24 text-center text-violet-300 italic">
                       No results found.
                     </TableCell>
                   </TableRow>
@@ -535,7 +560,7 @@ export function DataTable({
                   table.setPageSize(Number(value))
                 }}
               >
-                <SelectTrigger size="sm" className="w-20 border-violet-200" id="rows-per-page">
+                <SelectTrigger className="w-20 border-violet-200" id="rows-per-page">
                   <SelectValue
                     placeholder={table.getState().pagination.pageSize}
                   />

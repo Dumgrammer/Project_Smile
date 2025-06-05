@@ -26,6 +26,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CheckCircle2 } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 const locales = {
   'en-US': enUS,
@@ -138,6 +139,8 @@ export default function AppointmentsPage() {
   });
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [showMonthMenu, setShowMonthMenu] = useState(false);
+  const [showMonthAppointmentsModal, setShowMonthAppointmentsModal] = useState(false);
 
   useEffect(() => {
     setKey(prev => prev + 1);
@@ -365,6 +368,19 @@ export default function AppointmentsPage() {
   
   // Update handleSelectSlot to use business logic
   const handleSelectSlot = ({ start, end }: { start: Date; end: Date }) => {
+    // For month view, just set the date without time checks
+    if (view === Views.MONTH) {
+      setNewAppointment({
+        ...newAppointment,
+        date: start,
+        startTime: '09:00', // Default start time
+        endTime: '10:00',   // Default end time
+      });
+      setShowAppointmentModal(true);
+      return;
+    }
+
+    // For week and day views, check business hours
     if (!isWithinBusinessHours(start) || !isWithinBusinessHours(end)) {
       toast.error('Please select a time between 9:00 AM and 7:00 PM.');
       return;
@@ -385,6 +401,15 @@ export default function AppointmentsPage() {
       isToday(event.start)
     );
   }, [events]);
+
+  // Get all appointments for the current month
+  const monthAppointments = useMemo(() => {
+    const month = date.getMonth();
+    const year = date.getFullYear();
+    return events.filter(event => {
+      return event.start.getMonth() === month && event.start.getFullYear() === year;
+    });
+  }, [events, date]);
 
   const navigate = (action: 'PREV' | 'NEXT' | 'TODAY') => {
     let newDate = new Date(date);
@@ -427,13 +452,13 @@ export default function AppointmentsPage() {
         <div className="flex flex-1 flex-col gap-2">
             <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
               <div className="px-4 lg:px-6">
-                <div className="flex justify-between items-center mb-4">
+                <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center mb-4">
                   <div>
-                  <h1 className="text-3xl font-bold">Appointments</h1>
-                  <p className="text-slate-600">Manage patient appointments and schedule</p>
+                    <h1 className="text-2xl sm:text-3xl font-bold">Appointments</h1>
+                    <p className="text-slate-600 text-sm sm:text-base">Manage patient appointments and schedule</p>
                   </div>
                   <Button 
-                    className="bg-violet-600 hover:bg-violet-700"
+                    className="bg-violet-600 hover:bg-violet-700 w-full sm:w-auto mt-2 sm:mt-0"
                     onClick={() => {
                       setNewAppointment({
                       patientId: '',
@@ -449,27 +474,28 @@ export default function AppointmentsPage() {
                   </Button>
                 </div>
               </div>
-              <div className="px-4 lg:px-6 grid grid-cols-1 md:grid-cols-4 gap-4">
-                {/* Left sidebar with upcoming appointments */}
-                <Card className="md:col-span-1">
+              <div className="px-0 sm:px-4 md:px-6 flex flex-col md:grid md:grid-cols-4 gap-4">
+                {/* Upcoming appointments card - always on top on mobile */}
+                <Card className="mb-4 shadow-none rounded-none md:mb-0 md:shadow md:rounded-lg md:col-span-1">
                   <CardHeader>
-                    <CardTitle>Upcoming</CardTitle>
-                    <CardDescription>Today's appointments</CardDescription>
+                    <CardTitle className="text-base sm:text-lg">Upcoming</CardTitle>
+                    <CardDescription className="text-xs sm:text-sm">Today's appointments</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-2">
                     {todaysAppointments.map(event => (
                           <div key={event.id} className="p-2 border rounded-md">
-                            <div className="font-medium">{event.title}</div>
-                            <div className="text-sm text-slate-500">
+                          <div className="font-medium text-sm sm:text-base">{event.title}</div>
+                          <div className="text-xs sm:text-sm text-slate-500">
                               {format(event.start, 'h:mm a')} - {format(event.end, 'h:mm a')}
                             </div>
-                            <div className="mt-2 flex gap-2">
+                          <div className="mt-2 flex flex-col sm:flex-row gap-2">
                               {event.status === 'Scheduled' && (
                                 <>
                                   <Button 
                                     variant="outline" 
                                     size="sm"
+                                  className="w-full sm:w-auto"
                                     onClick={() => handleCompleteAppointment(event.id)}
                                   >
                                     Complete
@@ -477,6 +503,7 @@ export default function AppointmentsPage() {
                                   <Button 
                                     variant="outline" 
                                     size="sm"
+                                  className="w-full sm:w-auto"
                                     onClick={() => {
                                       setSelectedAppointment(event);
                                       setShowEditModal(true);
@@ -487,6 +514,7 @@ export default function AppointmentsPage() {
                                   <Button 
                                     variant="destructive" 
                                     size="sm"
+                                  className="w-full sm:w-auto"
                                     onClick={() => handleCancelAppointment(event.id)}
                                   >
                                     Cancel
@@ -494,68 +522,106 @@ export default function AppointmentsPage() {
                                 </>
                               )}
                               {event.status === 'Finished' && (
-                                <Badge className="bg-green-500">Completed</Badge>
+                              <Badge className="bg-green-500 w-full sm:w-auto text-center">Completed</Badge>
                               )}
                               {event.status === 'Cancelled' && (
-                                <Badge variant="destructive">Cancelled</Badge>
+                              <Badge variant="destructive" className="w-full sm:w-auto text-center">Cancelled</Badge>
                               )}
                             </div>
                           </div>
                         ))}
                     {todaysAppointments.length === 0 && (
-                        <div className="text-center py-4 text-slate-500">No appointments today</div>
+                        <div className="text-center py-4 text-slate-500 text-sm">No appointments today</div>
                       )}
                     </div>
                   </CardContent>
                 </Card>
               {/* Main calendar using react-big-calendar */}
-              <div className="md:col-span-3 h-[calc(100vh-250px)] bg-white rounded-lg shadow p-2">
+                <div className="shadow-none rounded-none md:shadow md:rounded-lg md:col-span-3 h-[350px] md:h-[calc(100vh-250px)] bg-white p-2">
                 <Tabs defaultValue="active" className="w-full">
-                  <TabsList className="mb-4">
-                    <TabsTrigger value="active">Active Appointments</TabsTrigger>
-                    <TabsTrigger value="archived">Archived Appointments</TabsTrigger>
+                    <TabsList className="mb-4 flex flex-row w-full justify-center bg-slate-100 rounded-full shadow-sm p-1 gap-2">
+                      <TabsTrigger value="active" className="flex-1 px-4 py-2 text-sm font-semibold rounded-full transition data-[state=active]:bg-violet-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=inactive]:bg-transparent data-[state=inactive]:text-slate-600">Active Appointments</TabsTrigger>
+                      <TabsTrigger value="archived" className="flex-1 px-4 py-2 text-sm font-semibold rounded-full transition data-[state=active]:bg-violet-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=inactive]:bg-transparent data-[state=inactive]:text-slate-600">Archived Appointments</TabsTrigger>
                   </TabsList>
 
                   <TabsContent value="active">
-                    <div className="h-[calc(100vh-250px)] bg-white rounded-lg shadow p-2">
-                      <div className="flex justify-between items-center mb-4 px-4">
-                        <div className="flex items-center gap-2">
-                          <Button variant="outline" onClick={() => navigate('PREV')}>
-                            Back
-                          </Button>
-                          <Button variant="outline" onClick={() => navigate('TODAY')}>
-                            Today
-                          </Button>
-                          <Button variant="outline" onClick={() => navigate('NEXT')}>
-                            Next
-                          </Button>
+                      <div className="h-[calc(100vh-250px)] bg-white rounded-none shadow-none md:shadow md:rounded-lg p-2">
+                        {/* Responsive navigation: two rows on mobile, one row split on desktop */}
+                        <div className="flex flex-col gap-2 justify-center items-center mb-4 w-full md:flex-row md:justify-between md:items-center md:mb-6">
+                          {/* Left group: Back, Today, Next */}
+                          <div className="flex flex-row gap-2 w-full max-w-xs justify-center md:max-w-none md:w-auto md:justify-start">
+                            <Button variant="outline" size="sm" onClick={() => navigate('PREV')} className="flex-1 w-full px-0 py-2 text-xs md:text-base md:w-auto md:px-4 md:py-2">Back</Button>
+                            <Button variant="outline" size="sm" onClick={() => navigate('TODAY')} className="flex-1 w-full px-0 py-2 text-xs md:text-base md:w-auto md:px-4 md:py-2">Today</Button>
+                            <Button variant="outline" size="sm" onClick={() => navigate('NEXT')} className="flex-1 w-full px-0 py-2 text-xs md:text-base md:w-auto md:px-4 md:py-2">Next</Button>
                         </div>
-                        <div className="text-lg font-semibold">
-                          {view === Views.DAY 
-                            ? format(date, 'EEEE, MMMM d, yyyy')
-                            : format(date, 'MMMM yyyy')}
-                        </div>
-                        <div className="flex items-center gap-2">
+                          {/* Right group: Month, Week, Day */}
+                          <div className="flex flex-row gap-2 w-full max-w-xs justify-center md:max-w-none md:w-auto md:justify-end mt-2 md:mt-0">
+                            {view === Views.MONTH ? (
+                              <Popover open={showMonthMenu} onOpenChange={setShowMonthMenu}>
+                                <PopoverTrigger asChild>
                           <Button 
-                            variant={view === Views.MONTH ? 'default' : 'outline'} 
+                                    variant="outline"
+                                    size="sm"
+                                    className={`flex-1 w-full px-0 py-2 text-xs md:text-base ring-2 ring-violet-200 flex items-center justify-center gap-1 md:w-auto md:px-4 md:py-2`}
+                                    onClick={() => setShowMonthMenu((open) => !open)}
+                                  >
+                                    Month <span className="ml-1">▼</span>
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent align="center" className="w-48 p-2">
+                                  <button
+                                    className="w-full text-left px-2 py-2 rounded hover:bg-slate-100 text-sm"
+                                    onClick={() => {
+                                      setShowMonthAppointmentsModal(true);
+                                      setShowMonthMenu(false);
+                                    }}
+                                  >
+                                    View All Appointments
+                                  </button>
+                                  <button
+                                    className="w-full text-left px-2 py-2 rounded hover:bg-slate-100 text-sm"
+                                    onClick={() => {
+                                      setShowAppointmentModal(true);
+                                      setShowMonthMenu(false);
+                                    }}
+                                  >
+                                    Create Appointment
+                                  </button>
+                                </PopoverContent>
+                              </Popover>
+                            ) : (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className={`flex-1 w-full px-0 py-2 text-xs md:text-base md:w-auto md:px-4 md:py-2`}
                             onClick={() => changeView(Views.MONTH)}
                           >
                             Month
                           </Button>
+                            )}
                           <Button 
-                            variant={view === Views.WEEK ? 'default' : 'outline'} 
+                              variant="outline"
                             onClick={() => changeView(Views.WEEK)}
+                              size="sm"
+                              className={`flex-1 w-full px-0 py-2 text-xs md:text-base md:w-auto md:px-4 md:py-2 ${view === Views.WEEK ? 'ring-2 ring-violet-200' : ''}`}
                           >
                             Week
                           </Button>
                           <Button 
-                            variant={view === Views.DAY ? 'default' : 'outline'} 
+                              variant="outline"
                             onClick={() => changeView(Views.DAY)}
+                              size="sm"
+                              className={`flex-1 w-full px-0 py-2 text-xs md:text-base md:w-auto md:px-4 md:py-2 ${view === Views.DAY ? 'ring-2 ring-violet-200' : ''}`}
                           >
                             Day
                           </Button>
                         </div>
                       </div>
+                        <div className="w-full text-center text-xs font-semibold mb-2 md:text-lg">
+                          {view === Views.DAY 
+                            ? format(date, 'EEEE, MMMM d, yyyy')
+                            : format(date, 'MMMM yyyy')}
+                        </div>
                     <Calendar
                       localizer={localizer}
                       events={events}
@@ -588,11 +654,11 @@ export default function AppointmentsPage() {
                   </TabsContent>
 
                   <TabsContent value="archived">
-                    <div className="bg-white rounded-lg shadow p-4">
-                      <div className="flex justify-between items-center mb-6">
-                        <h2 className="text-xl font-semibold">Archived Appointments</h2>
-                        <div className="flex items-center gap-4">
-                          <Label htmlFor="dateFilter" className="whitespace-nowrap">Filter by date:</Label>
+                      <div className="bg-white rounded-none shadow-none md:shadow md:rounded-lg p-4">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center mb-6">
+                          <h2 className="text-base sm:text-xl font-semibold">Archived Appointments</h2>
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4 w-full sm:w-auto">
+                            <Label htmlFor="dateFilter" className="whitespace-nowrap text-xs sm:text-sm">Filter by date:</Label>
                           <Input
                             id="dateFilter"
                             type="date"
@@ -604,15 +670,17 @@ export default function AppointmentsPage() {
                                 fetchArchivedAppointments(); // Show all when date is cleared
                               }
                             }}
-                            className="max-w-xs"
+                              className="w-full sm:w-auto max-w-xs"
                           />
                           <Button 
                             variant="outline" 
+                              size="sm"
                             onClick={() => {
                               const dateInput = document.getElementById('dateFilter') as HTMLInputElement;
                               if (dateInput) dateInput.value = '';
                               fetchArchivedAppointments();
                             }}
+                              className="w-full sm:w-auto"
                           >
                             Show All
                           </Button>
@@ -620,27 +688,27 @@ export default function AppointmentsPage() {
                       </div>
                       <div className="space-y-4">
                         {archivedEvents.length === 0 ? (
-                          <p className="text-gray-500">No archived appointments found</p>
+                            <p className="text-gray-500 text-sm">No archived appointments found</p>
                         ) : (
                           archivedEvents.map((event) => (
                             <div
                               key={event._id}
                               className="p-4 border rounded-lg hover:bg-gray-50"
                             >
-                              <div className="flex justify-between items-start">
+                                <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center">
                                 <div>
-                                  <div className="font-medium">{event.title}</div>
-                                  <div className="text-sm text-gray-500">
+                                    <div className="font-medium text-sm sm:text-base">{event.title}</div>
+                                    <div className="text-xs sm:text-sm text-gray-500">
                                     Patient: {event.patient.firstName} {event.patient.lastName}
                                   </div>
-                                  <div className="text-sm text-gray-500">
+                                    <div className="text-xs sm:text-sm text-gray-500">
                                     Date: {format(new Date(event.date), 'MMMM d, yyyy')}
                                   </div>
-                                  <div className="text-sm text-gray-500">
+                                    <div className="text-xs sm:text-sm text-gray-500">
                                     Time: {event.startTime} - {event.endTime}
                                   </div>
                                 </div>
-                                <Badge variant="destructive">Cancelled</Badge>
+                                  <Badge variant="destructive" className="w-full sm:w-auto text-center">Cancelled</Badge>
                               </div>
                             </div>
                           ))
@@ -654,6 +722,7 @@ export default function AppointmentsPage() {
           </div>
         </div>
       </SidebarInset>
+
       {/* Appointment Creation Dialog */}
       <Dialog open={showAppointmentModal} onOpenChange={setShowAppointmentModal}>
         <DialogContent className="sm:max-w-md">
@@ -665,12 +734,7 @@ export default function AppointmentsPage() {
               <Label>Patient</Label>
               <PatientSearch 
                 onSelect={(patientId) => {
-                  console.log('Selected patient ID:', patientId);
-                  setNewAppointment(prev => {
-                    const updated = {...prev, patientId};
-                    console.log('Updated appointment state:', updated);
-                    return updated;
-                  });
+                    setNewAppointment(prev => ({...prev, patientId}));
                 }}
                 selectedPatientId={newAppointment.patientId}
               />
@@ -758,12 +822,9 @@ export default function AppointmentsPage() {
                     const newDate = new Date(e.target.value);
                     const currentStart = selectedAppointment.start;
                     const currentEnd = selectedAppointment.end;
-                    
-                    // Preserve the time when changing the date
                     newDate.setHours(currentStart.getHours(), currentStart.getMinutes());
                     const newEnd = new Date(newDate);
                     newEnd.setHours(currentEnd.getHours(), currentEnd.getMinutes());
-                    
                     setSelectedAppointment({
                       ...selectedAppointment,
                       start: newDate,
@@ -951,6 +1012,32 @@ export default function AppointmentsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+        {/* Month Appointments Modal */}
+        <Dialog open={showMonthAppointmentsModal} onOpenChange={setShowMonthAppointmentsModal}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="text-xl">Appointments for {format(date, 'MMMM yyyy')}</DialogTitle>
+            </DialogHeader>
+            <div className="max-h-[60vh] overflow-y-auto divide-y">
+              {monthAppointments.length === 0 ? (
+                <div className="text-center text-gray-500 py-8">No appointments this month.</div>
+              ) : (
+                monthAppointments.map(event => (
+                  <div key={event.id} className="py-3">
+                    <div className="font-medium text-sm">{event.title}</div>
+                    <div className="text-xs text-gray-500">{format(event.start, 'EEEE, MMMM d, yyyy h:mm a')}</div>
+                    <div className="text-xs text-gray-500">Patient: {event.patient?.firstName} {event.patient?.lastName}</div>
+                    <div className="text-xs text-gray-500">Status: {event.status}</div>
+                  </div>
+                ))
+              )}
+            </div>
+            <DialogFooter>
+              <Button className="w-full" onClick={() => setShowMonthAppointmentsModal(false)}>Close</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
     </SidebarProvider>
   );
 } 

@@ -12,6 +12,7 @@ import {
   SidebarInset,
   SidebarProvider,
 } from "@/components/ui/sidebar"
+import { useDashboardStats } from '@/hooks/dashboard/dashboardHooks';
 
 interface AdminData {
   firstName: string;
@@ -23,6 +24,7 @@ export default function Dashboard() {
   const router = useRouter();
   const [adminData, setAdminData] = useState<AdminData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const { stats, loading, error } = useDashboardStats();
 
   useEffect(() => {
     // Check if logged in
@@ -75,7 +77,14 @@ export default function Dashboard() {
                   Dashboard | {adminData?.role === 'superadmin' ? 'Super Admin' : 'Admin'} View
                 </p>
               </div>
-              <SectionCards />
+              <SectionCards
+                totalVisitors={stats?.totalVisitors}
+                activePatients={stats?.activePatients}
+                totalRevenue={stats?.totalRevenue}
+                growthRate={stats?.growthRate}
+                loading={loading}
+                error={error}
+              />
               <div className="px-4 lg:px-6">
                 <ChartAreaInteractive />
               </div>
