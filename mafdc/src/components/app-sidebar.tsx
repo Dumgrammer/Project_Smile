@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo, useCallback } from "react"
 import Cookies from "js-cookie"
 import {
   IconChartBar,
@@ -16,11 +16,9 @@ import {
 
 import { NavMain } from "@/components/nav-main"
 import { NavSecondary } from "@/components/nav-secondary"
-import { NavUser } from "@/components/nav-user"
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -53,7 +51,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     }
   }, []);
 
-  const navMain = [
+  // Memoize navigation items to prevent unnecessary re-renders
+  const navMain = useMemo(() => [
     {
       title: "Dashboard",
       url: "/dashboard",
@@ -67,12 +66,18 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     {
       title: "Patients",
       url: "/patients/list",
-      
       icon: IconChartBar,
     }
-  ];
+  ], []);
 
-  const navSecondary = [
+  // Memoize the logout handler
+  const handleLogout = useCallback(() => {
+    console.log("Logging out...");
+    logout();
+  }, [logout]);
+
+  // Memoize secondary navigation items
+  const navSecondary = useMemo(() => [
     {
       title: "Settings",
       url: "/dashboard/settings",
@@ -92,14 +97,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       title: "Logout",
       url: "#",
       icon: IconLogout,
-      onClick: () => {
-        console.log("Logging out...");
-        logout();
-      },
+      onClick: handleLogout,
     },
-  ];
+  ], [handleLogout]);
 
-  const userData = adminData ? {
+  // Memoize user info
+  const userInfo = useMemo(() => adminData ? {
     name: `${adminData.firstName} ${adminData.lastName}`,
     email: adminData.email,
     avatar: "/avatars/user.jpg",
@@ -107,7 +110,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     name: "User",
     email: "user@example.com",
     avatar: "/avatars/user.jpg",
-  };
+  }, [adminData]);
 
   return (
     <Sidebar collapsible="offcanvas" {...props}>
@@ -124,13 +127,20 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               </a>
             </SidebarMenuButton>
           </SidebarMenuItem>
+          <SidebarMenuItem className="mt-4">
+            <div className="flex items-center gap-3 px-2">
+              <div className="flex flex-col">
+                <span className="text-sm font-medium">{userInfo.name}</span>
+                <span className="text-xs text-muted-foreground">{userInfo.email}</span>
+              </div>
+            </div>
+          </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={navMain} />
         <NavSecondary items={navSecondary} className="mt-auto" />
       </SidebarContent>
-
     </Sidebar>
   )
 }

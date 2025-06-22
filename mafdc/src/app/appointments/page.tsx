@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
-import { format, parse, startOfWeek, getDay, isToday, parseISO } from 'date-fns';
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import { format, parse, startOfWeek, getDay, isToday } from 'date-fns';
 import { enUS } from 'date-fns/locale';
 import { Calendar, dateFnsLocalizer, Views, View } from 'react-big-calendar';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
@@ -22,7 +22,6 @@ import { PatientSearch } from "@/components/patient-search";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { useRouter, usePathname } from 'next/navigation';
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CheckCircle2 } from "lucide-react";
@@ -39,82 +38,49 @@ const localizer = dateFnsLocalizer({
   locales,
 });
 
-const CustomToolbar = (toolbar: any) => {
-  const goToToday = () => {
-    toolbar.onNavigate('TODAY');
-  };
-
-  const goToBack = () => {
-    toolbar.onNavigate('PREV');
-  };
-
-  const goToNext = () => {
-    toolbar.onNavigate('NEXT');
-  };
-
-  const goToView = (view: string) => {
-    toolbar.onView(view);
-  };
-
-  return (
-    <div className="rbc-toolbar">
-      <span className="rbc-btn-group">
-        <button type="button" onClick={goToBack}>
-          Back
-        </button>
-        <button type="button" onClick={goToToday}>
-          Today
-        </button>
-        <button type="button" onClick={goToNext}>
-          Next
-        </button>
-      </span>
-      <span className="rbc-toolbar-label">{toolbar.label}</span>
-      <span className="rbc-btn-group">
-        <button
-          type="button"
-          className={toolbar.view === 'month' ? 'rbc-active' : ''}
-          onClick={() => goToView('month')}
-        >
-          Month
-        </button>
-        <button
-          type="button"
-          className={toolbar.view === 'week' ? 'rbc-active' : ''}
-          onClick={() => goToView('week')}
-        >
-          Week
-        </button>
-        <button
-          type="button"
-          className={toolbar.view === 'day' ? 'rbc-active' : ''}
-          onClick={() => goToView('day')}
-        >
-          Day
-        </button>
-      </span>
-    </div>
-  );
-};
-
 export default function AppointmentsPage() {
-  const pathname = usePathname();
-  const router = useRouter();
-  const { 
-    loading, 
-    error, 
-    getAppointments, 
-    createAppointment, 
-    updateAppointment, 
-    cancelAppointment,
-    completeAppointment,
-    getArchivedAppointments,
-    createAppointmentNotes,
-    rescheduleAppointment
-  } = useAppointments();
 
-  const [events, setEvents] = useState<any[]>([]);
-  const [archivedEvents, setArchivedEvents] = useState<any[]>([]);
+  const useAppointmentsHook = useAppointments();
+  const getAppointments = useAppointmentsHook.getAppointments;
+  const getArchivedAppointments = useAppointmentsHook.getArchivedAppointments;
+  const createAppointment = useAppointmentsHook.createAppointment;
+  const cancelAppointment = useAppointmentsHook.cancelAppointment;
+  const completeAppointment = useAppointmentsHook.completeAppointment;
+  const createAppointmentNotes = useAppointmentsHook.createAppointmentNotes;
+  const rescheduleAppointment = useAppointmentsHook.rescheduleAppointment;
+
+  const [events, setEvents] = useState<Array<{
+    id: string;
+    title: string;
+    start: Date;
+    end: Date;
+    allDay: boolean;
+    status: string;
+    patient: {
+      firstName: string;
+      middleName?: string;
+      lastName: string;
+    };
+    date: string;
+    startTime: string;
+    endTime: string;
+  }>>([]);
+  const [archivedEvents, setArchivedEvents] = useState<Array<{
+    id: string;
+    title: string;
+    start: Date;
+    end: Date;
+    allDay: boolean;
+    status: string;
+    patient: {
+      firstName: string;
+      middleName?: string;
+      lastName: string;
+    };
+    date: string;
+    startTime: string;
+    endTime: string;
+  }>>([]);
   const [showAppointmentModal, setShowAppointmentModal] = useState(false);
   const [newAppointment, setNewAppointment] = useState({
     patientId: '',
@@ -123,11 +89,25 @@ export default function AppointmentsPage() {
     startTime: '09:00',
     endTime: '10:00',
   });
-  const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
+  const [selectedAppointment, setSelectedAppointment] = useState<{
+    id: string;
+    title: string;
+    start: Date;
+    end: Date;
+    allDay: boolean;
+    status: string;
+    patient: {
+      firstName: string;
+      middleName?: string;
+      lastName: string;
+    };
+    date: string;
+    startTime: string;
+    endTime: string;
+  } | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [view, setView] = useState<View>(Views.WEEK);
   const [date, setDate] = useState(new Date());
-  const [key, setKey] = useState(0);
   const [showNotesModal, setShowNotesModal] = useState(false);
   const [appointmentNotes, setAppointmentNotes] = useState<AppointmentNotes>({
     treatmentNotes: '',
@@ -142,26 +122,28 @@ export default function AppointmentsPage() {
   const [showMonthMenu, setShowMonthMenu] = useState(false);
   const [showMonthAppointmentsModal, setShowMonthAppointmentsModal] = useState(false);
 
-  useEffect(() => {
-    setKey(prev => prev + 1);
-  }, [pathname]);
-
-  useEffect(() => {
-    fetchAppointments();
-    fetchArchivedAppointments();
-  }, [key]);
-
-  const fetchAppointments = async () => {
+  const fetchAppointments = useCallback(async () => {
     try {
       const response = await getAppointments();
-      
       if (!response || !Array.isArray(response)) {
         console.error('Invalid appointments response:', response);
         toast.error('Failed to fetch appointments: Invalid response format');
         return;
       }
 
-      const formattedEvents = response.map((apt: any) => {
+      const formattedEvents = response.map((apt: {
+        _id: string;
+        title: string;
+        date: string;
+        startTime: string;
+        endTime: string;
+        status: string;
+        patient: {
+          firstName: string;
+          middleName?: string;
+          lastName: string;
+        };
+      }) => {
         // Parse the ISO date string
         const appointmentDate = new Date(apt.date);
         
@@ -180,7 +162,7 @@ export default function AppointmentsPage() {
           allDay: false,
           status: apt.status,
           patient: apt.patient,
-          date: dateStr, // Store the formatted date
+          date: dateStr,
           startTime: apt.startTime,
           endTime: apt.endTime
         };
@@ -191,19 +173,76 @@ export default function AppointmentsPage() {
       console.error('Failed to fetch appointments:', err);
       toast.error('Failed to fetch appointments');
     }
-  };
+  }, [getAppointments, setEvents]);
 
-  const fetchArchivedAppointments = async (date?: Date) => {
+  const fetchArchivedAppointments = useCallback(async (date?: Date) => {
     try {
       const response = await getArchivedAppointments(
         date ? { date: format(date, 'yyyy-MM-dd') } : undefined
       );
-      setArchivedEvents(response);
+      if (Array.isArray(response)) {
+        const formattedArchivedEvents = response.map((apt: {
+          _id: string;
+          title: string;
+          date: string;
+          startTime: string;
+          endTime: string;
+          status: string;
+          patient: {
+            firstName: string;
+            middleName?: string;
+            lastName: string;
+          };
+        }) => {
+          const appointmentDate = new Date(apt.date);
+          const dateStr = format(appointmentDate, 'yyyy-MM-dd');
+          const start = new Date(`${dateStr}T${apt.startTime}`);
+          const end = new Date(`${dateStr}T${apt.endTime}`);
+
+          return {
+            id: apt._id,
+            title: `${apt.title} - ${apt.patient.firstName} ${apt.patient.lastName}`,
+            start,
+            end,
+            allDay: false,
+            status: apt.status,
+            patient: apt.patient,
+            date: dateStr,
+            startTime: apt.startTime,
+            endTime: apt.endTime
+          };
+        });
+        setArchivedEvents(formattedArchivedEvents);
+      }
     } catch (err) {
       console.error('Failed to fetch archived appointments:', err);
       toast.error('Failed to fetch archived appointments');
     }
-  };
+  }, [getArchivedAppointments, setArchivedEvents]);
+
+  // Memoize the loadData function to prevent it from changing on every render
+  const loadData = useCallback(async () => {
+    await fetchAppointments();
+    await fetchArchivedAppointments();
+  }, [fetchAppointments, fetchArchivedAppointments]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const initializeData = async () => {
+      if (mounted) {
+        await loadData();
+      }
+    };
+
+    initializeData();
+
+    return () => {
+      mounted = false;
+      setEvents([]);
+      setArchivedEvents([]);
+    };
+  }, [loadData]); // Now we only depend on the memoized loadData function
 
   // Add new appointment
   const handleCreateAppointment = async () => {
@@ -231,7 +270,22 @@ export default function AppointmentsPage() {
     }
   };
   
-  const handleSelectEvent = (event: any) => {
+  const handleSelectEvent = (event: {
+    id: string;
+    title: string;
+    start: Date;
+    end: Date;
+    allDay: boolean;
+    status: string;
+    patient: {
+      firstName: string;
+      middleName?: string;
+      lastName: string;
+    };
+    date: string;
+    startTime: string;
+    endTime: string;
+  }) => {
     setSelectedAppointment(event);
     setShowEditModal(true);
   };
@@ -248,42 +302,35 @@ export default function AppointmentsPage() {
       // Get the new date and time
       let newDate, newStartTime, newEndTime;
       
-      try {
-        newDate = format(selectedAppointment.start, 'yyyy-MM-dd');
-        newStartTime = format(selectedAppointment.start, 'HH:mm');
-        newEndTime = format(selectedAppointment.end, 'HH:mm');
-      } catch (dateError) {
-        console.error('Date formatting error:', dateError);
-        toast.error('Invalid date or time values');
-        return;
-      }
-
-      // Check if any time or date has changed
-      const isRescheduling = 
-        newDate !== originalDate ||
-        newStartTime !== originalStartTime ||
-        newEndTime !== originalEndTime;
-
-      if (isRescheduling) {
-        // Use the reschedule endpoint
-        await rescheduleAppointment(selectedAppointment.id, {
-          date: newDate,
-          startTime: newStartTime,
-          endTime: newEndTime,
-          title: selectedAppointment.title
-        });
-        setSuccessMessage('Appointment rescheduled successfully and notification has been sent to the patient');
+      // If the date has changed, use the new date
+      if (selectedAppointment.date !== originalDate) {
+        newDate = selectedAppointment.date;
       } else {
-        // Use the regular update endpoint
-        await updateAppointment(selectedAppointment.id, {
-          title: selectedAppointment.title
-        });
-        setSuccessMessage('Appointment updated successfully');
+        newDate = originalDate;
       }
-      
-      setShowSuccessModal(true);
+
+      // If the time has changed, use the new time
+      if (selectedAppointment.startTime !== originalStartTime) {
+        newStartTime = selectedAppointment.startTime;
+      } else {
+        newStartTime = originalStartTime;
+      }
+
+      if (selectedAppointment.endTime !== originalEndTime) {
+        newEndTime = selectedAppointment.endTime;
+      } else {
+        newEndTime = originalEndTime;
+      }
+
+      await rescheduleAppointment(selectedAppointment.id, {
+        date: newDate,
+        startTime: newStartTime,
+        endTime: newEndTime,
+      });
+
       setShowEditModal(false);
       fetchAppointments();
+      toast.success('Appointment updated successfully');
     } catch (err) {
       console.error('Failed to update appointment:', err);
       toast.error('Failed to update appointment');
@@ -293,10 +340,9 @@ export default function AppointmentsPage() {
   const handleCancelAppointment = async (appointmentId: string) => {
     try {
       await cancelAppointment(appointmentId);
-      setSuccessMessage('Appointment cancelled successfully');
-      setShowSuccessModal(true);
       setShowEditModal(false);
       fetchAppointments();
+      toast.success('Appointment cancelled successfully');
     } catch (err) {
       console.error('Failed to cancel appointment:', err);
       toast.error('Failed to cancel appointment');
@@ -305,18 +351,10 @@ export default function AppointmentsPage() {
 
   const handleCompleteAppointment = async (appointmentId: string) => {
     try {
-      const updatedAppointment = events.find(e => e.id === appointmentId);
-      if (updatedAppointment) {
-        setSelectedAppointment({
-          ...updatedAppointment,
-          status: 'Finished'
-        });
-        // Just update UI state without API call
-        await completeAppointment(appointmentId);
-        setSuccessMessage('Appointment marked as completed. Please add notes to finalize.');
-        setShowSuccessModal(true);
-        setShowNotesModal(true);
-      }
+      await completeAppointment(appointmentId);
+      setShowEditModal(false);
+      fetchAppointments();
+      toast.success('Appointment marked as completed');
     } catch (err) {
       console.error('Failed to complete appointment:', err);
       toast.error('Failed to complete appointment');
@@ -327,64 +365,28 @@ export default function AppointmentsPage() {
     if (!selectedAppointment) return;
 
     try {
-      // Complete appointment with notes - this will make the actual API calls
-      await completeAppointment(selectedAppointment.id, appointmentNotes);
-      setSuccessMessage('Appointment completed and notes saved successfully');
-      setShowSuccessModal(true);
+      await createAppointmentNotes(selectedAppointment.id, appointmentNotes);
       setShowNotesModal(false);
-      setAppointmentNotes({
-        treatmentNotes: '',
-        reminderNotes: '',
-        payment: {
-          amount: 0,
-          status: 'Pending'
-        }
-      });
-      fetchAppointments();
-    } catch (err: any) {
-      console.error('Failed to save appointment notes:', err);
-      if (err.message === 'Please log in to save notes') {
-        toast.error('Please log in to save notes');
-      } else {
-        toast.error(err.message || 'Failed to save appointment notes');
-      }
+      toast.success('Notes saved successfully');
+    } catch (err) {
+      console.error('Failed to save notes:', err);
+      toast.error('Failed to save notes');
     }
   };
 
-  // Custom business hours - clinic is closed on Wednesdays
-  const businessHours = {
-    start: new Date(0, 0, 0, 9, 0), // 9:00 AM
-    end: new Date(0, 0, 0, 19, 0),  // 7:00 PM
-  };
-
-  // Define business days (all days except Wednesday)
-  const businessDays = useMemo(() => [0, 1, 2, 3, 4, 5, 6], []);
-
-  // Check if a date is within business hours
+  // Remove unused businessHours and businessDays
   const isWithinBusinessHours = (date: Date) => {
     const hours = date.getHours();
-    return hours >= 9 && hours < 19; // Between 9am and 7pm
+    return hours >= 9 && hours < 17; // 9 AM to 5 PM
   };
   
   // Update handleSelectSlot to use business logic
   const handleSelectSlot = ({ start, end }: { start: Date; end: Date }) => {
-    // For month view, just set the date without time checks
-    if (view === Views.MONTH) {
-      setNewAppointment({
-        ...newAppointment,
-        date: start,
-        startTime: '09:00', // Default start time
-        endTime: '10:00',   // Default end time
-      });
-      setShowAppointmentModal(true);
+    if (!isWithinBusinessHours(start)) {
+      toast.error('Please select a time between 9 AM and 5 PM');
       return;
     }
 
-    // For week and day views, check business hours
-    if (!isWithinBusinessHours(start) || !isWithinBusinessHours(end)) {
-      toast.error('Please select a time between 9:00 AM and 7:00 PM.');
-      return;
-    }
     setNewAppointment({
       ...newAppointment,
       date: start,
@@ -413,6 +415,7 @@ export default function AppointmentsPage() {
 
   const navigate = (action: 'PREV' | 'NEXT' | 'TODAY') => {
     let newDate = new Date(date);
+    
     switch (action) {
       case 'PREV':
         if (view === Views.MONTH) {
@@ -436,7 +439,7 @@ export default function AppointmentsPage() {
         newDate = new Date();
         break;
     }
-
+    
     setDate(newDate);
   };
 
@@ -450,94 +453,100 @@ export default function AppointmentsPage() {
       <SidebarInset>
         <SiteHeader />
         <div className="flex flex-1 flex-col gap-2">
-            <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-              <div className="px-4 lg:px-6">
-                <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center mb-4">
-                  <div>
-                    <h1 className="text-2xl sm:text-3xl font-bold">Appointments</h1>
-                    <p className="text-slate-600 text-sm sm:text-base">Manage patient appointments and schedule</p>
-                  </div>
-                  <Button 
-                    className="bg-violet-600 hover:bg-violet-700 w-full sm:w-auto mt-2 sm:mt-0"
-                    onClick={() => {
-                      setNewAppointment({
-                      patientId: '',
-                        title: '',
-                      date: new Date(),
-                        startTime: '09:00',
-                        endTime: '10:00',
-                      });
-                      setShowAppointmentModal(true);
-                    }}
-                  >
-                    New Appointment
-                  </Button>
+          <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+            <div className="px-4 lg:px-6">
+              <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center mb-4">
+                <div>
+                  <h1 className="text-2xl sm:text-3xl font-bold">Appointments</h1>
+                  <p className="text-slate-600 text-sm sm:text-base">Manage patient appointments and schedule</p>
                 </div>
+                <Button 
+                  className="bg-violet-600 hover:bg-violet-700 w-full sm:w-auto mt-2 sm:mt-0"
+                  onClick={() => {
+                    setNewAppointment({
+                      patientId: '',
+                      title: '',
+                      date: new Date(),
+                      startTime: '09:00',
+                      endTime: '10:00',
+                    });
+                    setShowAppointmentModal(true);
+                  }}
+                >
+                  New Appointment
+                </Button>
               </div>
-              <div className="px-0 sm:px-4 md:px-6 flex flex-col md:grid md:grid-cols-4 gap-4">
-                {/* Upcoming appointments card - always on top on mobile */}
-                <Card className="mb-4 shadow-none rounded-none md:mb-0 md:shadow md:rounded-lg md:col-span-1">
-                  <CardHeader>
-                    <CardTitle className="text-base sm:text-lg">Upcoming</CardTitle>
-                    <CardDescription className="text-xs sm:text-sm">Today's appointments</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
+            </div>
+            <div className="px-0 sm:px-4 md:px-6 flex flex-col md:grid md:grid-cols-4 gap-4">
+              {/* Upcoming appointments card - always on top on mobile */}
+              <Card className="mb-4 shadow-none rounded-none md:mb-0 md:shadow md:rounded-lg md:col-span-1">
+                <CardHeader>
+                  <CardTitle className="text-base sm:text-lg">Upcoming</CardTitle>
+                  <CardDescription className="text-xs sm:text-sm">Today&apos;s appointments</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
                     {todaysAppointments.map(event => (
-                          <div key={event.id} className="p-2 border rounded-md">
-                          <div className="font-medium text-sm sm:text-base">{event.title}</div>
-                          <div className="text-xs sm:text-sm text-slate-500">
-                              {format(event.start, 'h:mm a')} - {format(event.end, 'h:mm a')}
-                            </div>
-                          <div className="mt-2 flex flex-col sm:flex-row gap-2">
-                              {event.status === 'Scheduled' && (
-                                <>
-                                  <Button 
-                                    variant="outline" 
-                                    size="sm"
-                                  className="w-full sm:w-auto"
-                                    onClick={() => handleCompleteAppointment(event.id)}
-                                  >
-                                    Complete
-                                  </Button>
-                                  <Button 
-                                    variant="outline" 
-                                    size="sm"
-                                  className="w-full sm:w-auto"
-                                    onClick={() => {
-                                      setSelectedAppointment(event);
-                                      setShowEditModal(true);
-                                    }}
-                                  >
-                                    Reschedule
-                                  </Button>
-                                  <Button 
-                                    variant="destructive" 
-                                    size="sm"
-                                  className="w-full sm:w-auto"
-                                    onClick={() => handleCancelAppointment(event.id)}
-                                  >
-                                    Cancel
-                                  </Button>
-                                </>
-                              )}
-                              {event.status === 'Finished' && (
-                              <Badge className="bg-green-500 w-full sm:w-auto text-center">Completed</Badge>
-                              )}
-                              {event.status === 'Cancelled' && (
-                              <Badge variant="destructive" className="w-full sm:w-auto text-center">Cancelled</Badge>
-                              )}
-                            </div>
-                          </div>
-                        ))}
+                      <div key={`today-${event.id}`} className="p-2 border rounded-md">
+                        <div className="font-medium text-sm sm:text-base">{event.title}</div>
+                        <div className="text-xs sm:text-sm text-slate-500">
+                          {format(event.start, 'h:mm a')} - {format(event.end, 'h:mm a')}
+                        </div>
+                        <div className="mt-2 flex flex-col sm:flex-row gap-2">
+                          {event.status === 'Scheduled' && (
+                            <>
+                              <Button 
+                                key={`complete-${event.id}`}
+                                variant="outline" 
+                                size="sm"
+                                className="w-full sm:w-auto"
+                                onClick={() => handleCompleteAppointment(event.id)}
+                              >
+                                Complete
+                              </Button>
+                              <Button 
+                                key={`reschedule-${event.id}`}
+                                variant="outline" 
+                                size="sm"
+                                className="w-full sm:w-auto"
+                                onClick={() => {
+                                  setSelectedAppointment(event);
+                                  setShowEditModal(true);
+                                }}
+                              >
+                                Reschedule
+                              </Button>
+                              <Button 
+                                key={`cancel-${event.id}`}
+                                variant="destructive" 
+                                size="sm"
+                                className="w-full sm:w-auto"
+                                onClick={() => {
+                                  handleCancelAppointment(event.id);
+                                  console.log(event);
+                                }}
+                              >
+                                Cancel
+                              </Button>
+                            </>
+                          )}
+                          {event.status === 'Finished' && (
+                            <Badge key={`completed-${event.id}`} className="bg-green-500 w-full sm:w-auto text-center">Completed</Badge>
+                          )}
+                          {event.status === 'Cancelled' && (
+                            <Badge key={`cancelled-${event.id}`} variant="destructive" className="w-full sm:w-auto text-center">Cancelled</Badge>
+                          )}
+                        </div>
+                      </div>
+                    ))}
                     {todaysAppointments.length === 0 && (
-                        <div className="text-center py-4 text-slate-500 text-sm">No appointments today</div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
+                      <div key="no-appointments" className="text-center py-4 text-slate-500 text-sm">No appointments today</div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
               {/* Main calendar using react-big-calendar */}
-                <div className="shadow-none rounded-none md:shadow md:rounded-lg md:col-span-3 h-[350px] md:h-[calc(100vh-250px)] bg-white p-2">
+              <div className="shadow-none rounded-none md:shadow md:rounded-lg md:col-span-3 h-[350px] md:h-[calc(100vh-250px)] bg-white p-2">
                 <Tabs defaultValue="active" className="w-full">
                     <TabsList className="mb-4 flex flex-row w-full justify-center bg-slate-100 rounded-full shadow-sm p-1 gap-2">
                       <TabsTrigger value="active" className="flex-1 px-4 py-2 text-sm font-semibold rounded-full transition data-[state=active]:bg-violet-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=inactive]:bg-transparent data-[state=inactive]:text-slate-600">Active Appointments</TabsTrigger>
@@ -688,27 +697,27 @@ export default function AppointmentsPage() {
                       </div>
                       <div className="space-y-4">
                         {archivedEvents.length === 0 ? (
-                            <p className="text-gray-500 text-sm">No archived appointments found</p>
+                          <p key="no-archived" className="text-gray-500 text-sm">No archived appointments found</p>
                         ) : (
                           archivedEvents.map((event) => (
                             <div
-                              key={event._id}
+                              key={`archived-${event.id}`}
                               className="p-4 border rounded-lg hover:bg-gray-50"
                             >
-                                <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center">
+                              <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center">
                                 <div>
-                                    <div className="font-medium text-sm sm:text-base">{event.title}</div>
-                                    <div className="text-xs sm:text-sm text-gray-500">
-                                    Patient: {event.patient.firstName} {event.patient.lastName}
+                                  <div className="font-medium text-sm sm:text-base">{event.title}</div>
+                                  <div className="text-xs sm:text-sm text-gray-500">
+                                    Patient&apos;s: {event.patient.firstName} {event.patient.lastName}
                                   </div>
-                                    <div className="text-xs sm:text-sm text-gray-500">
+                                  <div className="text-xs sm:text-sm text-gray-500">
                                     Date: {format(new Date(event.date), 'MMMM d, yyyy')}
                                   </div>
-                                    <div className="text-xs sm:text-sm text-gray-500">
+                                  <div className="text-xs sm:text-sm text-gray-500">
                                     Time: {event.startTime} - {event.endTime}
                                   </div>
                                 </div>
-                                  <Badge variant="destructive" className="w-full sm:w-auto text-center">Cancelled</Badge>
+                                <Badge key={`archived-badge-${event.id}`} variant="destructive" className="w-full sm:w-auto text-center">Cancelled</Badge>
                               </div>
                             </div>
                           ))

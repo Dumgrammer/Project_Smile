@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import Cookies from 'js-cookie';
 
@@ -36,31 +36,49 @@ export interface AppointmentNotes {
   };
 }
 
+interface ApiError {
+  message: string;
+  status?: number;
+  data?: unknown;
+  response?: {
+    data?: {
+      message?: string;
+    };
+  };
+}
+
+interface ApiResponse<T> {
+  data: T;
+  status: number;
+  message?: string;
+}
+
 export const useAppointments = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const createAppointment = async (appointmentData: {
+  const createAppointment = useCallback(async (appointmentData: {
     patientId: string;
     date: string;
     startTime: string;
     endTime: string;
     title: string;
-  }) => {
+  }): Promise<ApiResponse<Appointment>> => {
     try {
       setLoading(true);
       setError(null);
       const response = await axios.post(`${API_URL}/appointments`, appointmentData);
       return response.data;
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to create appointment');
-      throw err;
+    } catch (error: unknown) {
+      const apiError = error as ApiError;
+      setError(apiError.message || 'Failed to create appointment');
+      throw new Error(apiError.message || 'Failed to create appointment');
     } finally {
       setLoading(false);
     }
-  };
+  }, [setLoading, setError]);
 
-  const getAppointments = async (filters?: { date?: string; status?: string }) => {
+  const getAppointments = useCallback(async (filters?: { date?: string; status?: string }) => {
     try {
       setLoading(true);
       setError(null);
@@ -70,15 +88,16 @@ export const useAppointments = () => {
 
       const response = await axios.get(`${API_URL}/appointments?${params.toString()}`);
       return response.data;
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to fetch appointments');
-      throw err;
+    } catch (err: unknown) {
+      const apiError = err as ApiError;
+      setError(apiError.response?.data?.message || apiError.message || 'Failed to fetch appointments');
+      throw apiError;
     } finally {
       setLoading(false);
     }
-  };
+  }, [setLoading, setError]);
 
-  const getArchivedAppointments = async (filters?: { date?: string }) => {
+  const getArchivedAppointments = useCallback(async (filters?: { date?: string }) => {
     try {
       setLoading(true);
       setError(null);
@@ -87,29 +106,31 @@ export const useAppointments = () => {
 
       const response = await axios.get(`${API_URL}/appointments/archived?${params.toString()}`);
       return response.data;
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to fetch archived appointments');
-      throw err;
+    } catch (err: unknown) {
+      const apiError = err as ApiError;
+      setError(apiError.response?.data?.message || apiError.message || 'Failed to fetch archived appointments');
+      throw apiError;
     } finally {
       setLoading(false);
     }
-  };
+  }, [setLoading, setError]);
 
-  const getAppointmentById = async (id: string) => {
+  const getAppointmentById = useCallback(async (id: string) => {
     try {
       setLoading(true);
       setError(null);
       const response = await axios.get(`${API_URL}/appointments/${id}`);
       return response.data;
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to fetch appointment');
-      throw err;
+    } catch (err: unknown) {
+      const apiError = err as ApiError;
+      setError(apiError.response?.data?.message || apiError.message || 'Failed to fetch appointment');
+      throw apiError;
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const updateAppointment = async (
+  const updateAppointment = useCallback(async (
     id: string,
     updateData: {
       date?: string;
@@ -131,30 +152,32 @@ export const useAppointments = () => {
       
       const response = await axios.put(`${API_URL}/appointments/${id}`, updateData);
       return response.data;
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.message || err.message || 'Failed to update appointment';
+    } catch (err: unknown) {
+      const apiError = err as ApiError;
+      const errorMessage = apiError.response?.data?.message || apiError.message || 'Failed to update appointment';
       setError(errorMessage);
       throw new Error(errorMessage);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const cancelAppointment = async (id: string) => {
+  const cancelAppointment = useCallback(async (id: string) => {
     try {
       setLoading(true);
       setError(null);
       const response = await axios.delete(`${API_URL}/appointments/${id}`);
       return response.data;
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to cancel appointment');
-      throw err;
+    } catch (err: unknown) {
+      const apiError = err as ApiError;
+      setError(apiError.response?.data?.message || apiError.message || 'Failed to cancel appointment');
+      throw apiError;
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const completeAppointment = async (id: string, notes?: AppointmentNotes) => {
+  const completeAppointment = useCallback(async (id: string, notes?: AppointmentNotes) => {
     try {
       setLoading(true);
       setError(null);
@@ -213,30 +236,32 @@ export const useAppointments = () => {
       
       // If no notes provided, just return success without API calls
       return { status: 'Finished' };
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.message || err.message || 'Failed to complete appointment';
+    } catch (err: unknown) {
+      const apiError = err as ApiError;
+      const errorMessage = apiError.response?.data?.message || apiError.message || 'Failed to complete appointment';
       setError(errorMessage);
       throw new Error(errorMessage);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const getAvailableSlots = async (date: string) => {
+  const getAvailableSlots = useCallback(async (date: string) => {
     try {
       setLoading(true);
       setError(null);
       const response = await axios.get(`${API_URL}/appointments/slots/${date}`);
       return response.data as TimeSlot[];
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to fetch available slots');
-      throw err;
+    } catch (err: unknown) {
+      const apiError = err as ApiError;
+      setError(apiError.response?.data?.message || apiError.message || 'Failed to fetch available slots');
+      throw apiError;
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const createAppointmentNotes = async (appointmentId: string, notes: AppointmentNotes) => {
+  const createAppointmentNotes = useCallback(async (appointmentId: string, notes: AppointmentNotes) => {
     try {
       setLoading(true);
       setError(null);
@@ -274,30 +299,32 @@ export const useAppointments = () => {
         }
       });
       return response.data;
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.message || err.message || 'Failed to create appointment notes';
+    } catch (err: unknown) {
+      const apiError = err as ApiError;
+      const errorMessage = apiError.response?.data?.message || apiError.message || 'Failed to create appointment notes';
       setError(errorMessage);
       throw new Error(errorMessage);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const getAppointmentNotes = async (appointmentId: string) => {
+  const getAppointmentNotes = useCallback(async (appointmentId: string) => {
     try {
       setLoading(true);
       setError(null);
       const response = await axios.get(`${API_URL}/notes/appointment/${appointmentId}`);
       return response.data;
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to fetch appointment notes');
-      throw err;
+    } catch (err: unknown) {
+      const apiError = err as ApiError;
+      setError(apiError.response?.data?.message || apiError.message || 'Failed to fetch appointment notes');
+      throw apiError;
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const rescheduleAppointment = async (
+  const rescheduleAppointment = useCallback(async (
     id: string,
     updateData: {
       date: string;
@@ -320,16 +347,17 @@ export const useAppointments = () => {
 
       const response = await axios.put(`${API_URL}/appointments/${id}/reschedule`, formattedData);
       return response.data;
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.message || err.message || 'Failed to reschedule appointment';
+    } catch (err: unknown) {
+      const apiError = err as ApiError;
+      const errorMessage = apiError.response?.data?.message || apiError.message || 'Failed to reschedule appointment';
       setError(errorMessage);
       throw new Error(errorMessage);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  return {
+  return useMemo(() => ({
     loading,
     error,
     createAppointment,
@@ -343,5 +371,19 @@ export const useAppointments = () => {
     getAppointmentNotes,
     getAvailableSlots,
     rescheduleAppointment,
-  };
+  }), [
+    loading,
+    error,
+    createAppointment,
+    getAppointments,
+    getArchivedAppointments,
+    getAppointmentById,
+    updateAppointment,
+    cancelAppointment,
+    completeAppointment,
+    createAppointmentNotes,
+    getAppointmentNotes,
+    getAvailableSlots,
+    rescheduleAppointment,
+  ]);
 };

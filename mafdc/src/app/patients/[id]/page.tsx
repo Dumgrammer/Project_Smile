@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { usePatients } from '@/hooks/patients/patientHooks';
 import { AppSidebar } from "@/components/app-sidebar";
@@ -15,13 +15,7 @@ import { IconArrowLeft, IconCircleCheckFilled, IconLoader } from '@tabler/icons-
 import { use } from 'react';
 import { usePatientAppointments } from '@/hooks/appointments/usePatientAppointments';
 import { format } from 'date-fns';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+
 import {
   Select,
   SelectContent,
@@ -70,6 +64,44 @@ interface Patient {
   }>;
 }
 
+interface Appointment {
+  _id: string;
+  title: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  status: 'Scheduled' | 'Finished' | 'Cancelled';
+}
+
+interface Note {
+  _id: string;
+  appointment: {
+    date: string;
+    title: string;
+    startTime: string;
+    endTime: string;
+  };
+  treatmentNotes: string;
+  reminderNotes?: string;
+  payment: {
+    status: string;
+    amount: number;
+  };
+  createdBy: {
+    firstName: string;
+    lastName: string;
+  };
+}
+
+interface ApiError {
+  message: string;
+  response?: {
+    data?: {
+      message?: string;
+    };
+  };
+}
+
 const formatDate = (dateString?: string) => {
   if (!dateString) return 'N/A';
   try {
@@ -78,7 +110,9 @@ const formatDate = (dateString?: string) => {
       month: 'long',
       day: 'numeric',
     });
-  } catch (error) {
+  } catch (error: unknown) {
+    const apiError = error as ApiError;
+    console.error('Error formatting date:', apiError);
     return 'Invalid Date';
   }
 };
@@ -89,7 +123,9 @@ const formatMonthYear = (dateString: string) => {
       year: 'numeric',
       month: 'long',
     });
-  } catch (error) {
+  } catch (error: unknown) {
+    const apiError = error as ApiError;
+    console.error('Error formatting month/year:', apiError);
     return 'Invalid Date';
   }
 };
@@ -102,20 +138,20 @@ export default function PatientDetails({
   const router = useRouter();
   const { getPatientById } = usePatients();
   const { loading: appointmentsLoading, error: appointmentsError, getPatientAppointments } = usePatientAppointments();
-  const { loading: notesLoading, error: notesError, getPatientNotes } = useNotes();
+  const { loading: notesLoading, getPatientNotes } = useNotes();
   const [patient, setPatient] = useState<Patient | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [appointments, setAppointments] = useState<any[]>([]);
-  const [notes, setNotes] = useState<any[]>([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [notes, setNotes] = useState<Note[]>([]);
   const [sortBy, setSortBy] = useState('date');
-  const [notesSortBy, setNotesSortBy] = useState('newest');
+  const [notesSortBy] = useState('newest');
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [selectedMonthYear, setSelectedMonthYear] = useState('All');
 
   // Group notes by month and year
   const groupedNotes = useMemo(() => {
-    const groups: { [key: string]: { [key: string]: any[] } } = {};
+    const groups: { [key: string]: { [key: string]: Note[] } } = {};
     notes.forEach(note => {
       const monthYear = formatMonthYear(note.appointment.date);
       const date = formatDate(note.appointment.date);
@@ -188,28 +224,33 @@ export default function PatientDetails({
     };
   }, [resolvedParams.id, getPatientById]);
 
-  useEffect(() => {
-    fetchPatientAppointments();
-  }, [resolvedParams.id, sortBy]);
-
-  useEffect(() => {
-    fetchPatientNotes();
-  }, [resolvedParams.id, notesSortBy]);
-
-  const fetchPatientAppointments = async () => {
+  const fetchPatientAppointments = useCallback(async () => {
     try {
-      const data = await getPatientAppointments(resolvedParams.id, sortBy);
-      setAppointments(data);
-    } catch (err) {
-      console.error('Failed to fetch patient appointments:', err);
+      const response = await getPatientAppointments(resolvedParams.id);
+      // Sort appointments based on the selected option
+      const sortedAppointments = [...response].sort((a, b) => {
+        switch (sortBy) {
+          case 'dateAsc':
+            return new Date(a.date).getTime() - new Date(b.date).getTime();
+          case 'status':
+            return a.status.localeCompare(b.status);
+          case 'date':
+          default:
+            return new Date(b.date).getTime() - new Date(a.date).getTime();
+        }
+      });
+      setAppointments(sortedAppointments);
+    } catch (err: unknown) {
+      const apiError = err as ApiError;
+      console.error('Error fetching appointments:', apiError);
     }
-  };
+  }, [getPatientAppointments, resolvedParams.id, sortBy]);
 
-  const fetchPatientNotes = async () => {
+  const fetchPatientNotes = useCallback(async () => {
     try {
-      const data = await getPatientNotes(resolvedParams.id);
+      const response = await getPatientNotes(resolvedParams.id);
       // Sort notes based on the selected option
-      const sortedNotes = [...data].sort((a, b) => {
+      const sortedNotes = [...response].sort((a, b) => {
         switch (notesSortBy) {
           case 'oldest':
             return new Date(a.appointment.date).getTime() - new Date(b.appointment.date).getTime();
@@ -219,10 +260,23 @@ export default function PatientDetails({
         }
       });
       setNotes(sortedNotes);
-    } catch (err) {
-      console.error('Failed to fetch patient notes:', err);
+    } catch (err: unknown) {
+      const apiError = err as ApiError;
+      console.error('Error fetching notes:', apiError);
     }
-  };
+  }, [getPatientNotes, resolvedParams.id, notesSortBy]);
+
+  useEffect(() => {
+    if (!isLoading) {
+      fetchPatientAppointments();
+    }
+  }, [isLoading, fetchPatientAppointments]);
+
+  useEffect(() => {
+    if (!isLoading) {
+      fetchPatientNotes();
+    }
+  }, [isLoading, fetchPatientNotes]);
 
   if (isLoading) {
     return (

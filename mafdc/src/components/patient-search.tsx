@@ -23,7 +23,7 @@ interface PatientSearchProps {
 
 export function PatientSearch({ onSelect, selectedPatientId }: PatientSearchProps) {
   const [patients, setPatients] = React.useState<Patient[]>([]);
-  const { getPatients, loading } = usePatients();
+  const { getPatients } = usePatients();
 
   React.useEffect(() => {
     const fetchPatients = async () => {

@@ -14,6 +14,15 @@ export interface RevenueTrendPoint {
   revenue: number;
 }
 
+interface ApiError {
+  message: string;
+  response?: {
+    data?: {
+      message?: string;
+    };
+  };
+}
+
 // Create axios instance with base URL and default headers
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1',
@@ -43,8 +52,9 @@ export function useDashboardStats() {
       try {
         const res = await api.get('/admin/dashboard/stats');
         setStats(res.data);
-      } catch (err: any) {
-        setError(err?.message || 'Unknown error');
+      } catch (err: unknown) {
+        const apiError = err as ApiError;
+        setError(apiError.response?.data?.message || apiError.message || 'Unknown error');
       } finally {
         setLoading(false);
       }
@@ -67,8 +77,9 @@ export function useRevenueTrend() {
       try {
         const res = await api.get('/admin/dashboard/revenue-trend');
         setData(res.data);
-      } catch (err: any) {
-        setError(err?.message || 'Unknown error');
+      } catch (err: unknown) {
+        const apiError = err as ApiError;
+        setError(apiError.response?.data?.message || apiError.message || 'Unknown error');
       } finally {
         setLoading(false);
       }

@@ -180,7 +180,7 @@ export function AddPatientDialog({ onPatientAdded }: AddPatientDialogProps) {
         <DialogHeader>
           <DialogTitle>Add New Patient</DialogTitle>
           <DialogDescription>
-            Fill in the patient's information below. Click save when you're done.
+            Fill in the patient&apos;s information below. Click save when you&apos;re done.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>

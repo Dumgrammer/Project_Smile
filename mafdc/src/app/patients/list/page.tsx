@@ -14,15 +14,8 @@ import {
 import { usePatients } from "@/hooks/patients/patientHooks"
 import { z } from "zod"
 
-interface AdminData {
-  firstName: string;
-  lastName: string;
-  role: string;
-}
-
 export default function PatientsList() {
   const router = useRouter();
-  const [adminData, setAdminData] = useState<AdminData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { getPatients, loading: patientsLoading } = usePatients();
   const [patients, setPatients] = useState<z.infer<typeof schema>[]>([]);
@@ -31,6 +24,7 @@ export default function PatientsList() {
   const fetchPatients = useCallback(async () => {
     try {
       const response = await getPatients();
+      console.log(response);
       setPatients(response.patients);
     } catch (error) {
       console.error('Error fetching patients:', error);
@@ -47,18 +41,10 @@ export default function PatientsList() {
       return;
     }
 
-    try {
-      setAdminData(JSON.parse(adminDataCookie));
-    } catch (error) {
-      console.error('Error parsing admin data:', error);
-      router.push('/login');
-    } finally {
-      setIsLoading(false);
-    }
+    setIsLoading(false);
   }, [router]);
 
   useEffect(() => {
-    let isMounted = true;
 
     const loadPatients = async () => {
       if (!isLoading) {
@@ -68,10 +54,6 @@ export default function PatientsList() {
 
     loadPatients();
 
-    // Cleanup function
-    return () => {
-      isMounted = false;
-    };
   }, [isLoading, fetchPatients]);
 
   if (isLoading || patientsLoading) {

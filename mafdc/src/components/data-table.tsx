@@ -14,12 +14,9 @@ import {
 } from "@dnd-kit/core"
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers"
 import {
-  SortableContext,
   arrayMove,
   useSortable,
-  verticalListSortingStrategy,
 } from "@dnd-kit/sortable"
-import { CSS } from "@dnd-kit/utilities"
 import {
   IconChevronDown,
   IconChevronLeft,
@@ -31,7 +28,6 @@ import {
   IconGripVertical,
   IconLayoutColumns,
   IconLoader,
-  IconPlus,
   IconEye,
   IconPencil,
   IconArchive,
@@ -66,7 +62,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
   Select,
@@ -131,6 +126,59 @@ function DragHandle({ id }: { id: string }) {
       <span className="sr-only">Drag to reorder</span>
     </Button>
   )
+}
+
+// Add this before the columns definition
+function ActionsCell({ row }: { row: Row<z.infer<typeof schema>> }) {
+  const router = useRouter();
+  const [isNavigating, setIsNavigating] = useState(false);
+  
+  const handleViewProfile = () => {
+    if (isNavigating) return;
+    
+    const patientId = row.original._id;
+    if (!patientId) {
+      toast.error('Invalid patient ID');
+      return;
+    }
+    
+    setIsNavigating(true);
+    router.push(`/patients/${patientId}`);
+  };
+  
+  const handleUpdate = () => {
+    toast.info("Update functionality coming soon");
+  };
+  
+  const handleArchive = () => {
+    toast.info("Archive functionality coming soon");
+  };
+  
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" className="h-8 w-8 p-0">
+          <IconDotsVertical className="h-4 w-4" />
+          <span className="sr-only">Open menu</span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={handleViewProfile} disabled={isNavigating}>
+          <IconEye className="mr-2 h-4 w-4" />
+          {isNavigating ? 'Loading...' : 'See Profile'}
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={handleUpdate}>
+          <IconPencil className="mr-2 h-4 w-4" />
+          Update
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={handleArchive} className="text-red-600">
+          <IconArchive className="mr-2 h-4 w-4" />
+          Archive
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 }
 
 const columns: ColumnDef<z.infer<typeof schema>>[] = [
@@ -229,85 +277,10 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
   {
     id: "actions",
     header: "Actions",
-    cell: ({ row }) => {
-      const router = useRouter();
-      const [isNavigating, setIsNavigating] = useState(false);
-      
-      const handleViewProfile = () => {
-        if (isNavigating) return;
-        
-        const patientId = row.original._id;
-        if (!patientId) {
-          toast.error('Invalid patient ID');
-          return;
-        }
-        
-        setIsNavigating(true);
-        router.push(`/patients/${patientId}`);
-      };
-      
-      const handleUpdate = () => {
-        toast.info("Update functionality coming soon");
-      };
-      
-      const handleArchive = () => {
-        toast.info("Archive functionality coming soon");
-      };
-      
-      return (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8 p-0">
-              <IconDotsVertical className="h-4 w-4" />
-            <span className="sr-only">Open menu</span>
-          </Button>
-        </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={handleViewProfile} disabled={isNavigating}>
-              <IconEye className="mr-2 h-4 w-4" />
-              {isNavigating ? 'Loading...' : 'See Profile'}
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={handleUpdate}>
-              <IconPencil className="mr-2 h-4 w-4" />
-              Update
-            </DropdownMenuItem>
-          <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleArchive} className="text-red-600">
-              <IconArchive className="mr-2 h-4 w-4" />
-              Archive
-            </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-      );
-    },
+    cell: ({ row }) => <ActionsCell row={row} />,
     size: 80,
   },
 ]
-
-function DraggableRow({ row }: { row: Row<z.infer<typeof schema>> }) {
-  const { transform, transition, setNodeRef, isDragging } = useSortable({
-    id: row.original._id,
-  })
-
-  return (
-    <TableRow
-      data-state={row.getIsSelected() && "selected"}
-      data-dragging={isDragging}
-      ref={setNodeRef}
-      className="relative z-0 data-[dragging=true]:z-10 data-[dragging=true]:opacity-80 border-b border-slate-200 hover:bg-slate-50/50 data-[state=selected]:bg-slate-100/50"
-      style={{
-        transform: CSS.Transform.toString(transform),
-        transition: transition,
-      }}
-    >
-      {row.getVisibleCells().map((cell) => (
-        <TableCell key={cell.id} className="border-b border-slate-200 p-4">
-          {flexRender(cell.column.columnDef.cell, cell.getContext())}
-        </TableCell>
-      ))}
-    </TableRow>
-  )
-}
 
 export function DataTable({
   data: initialData,
@@ -333,8 +306,7 @@ export function DataTable({
     useSensor(KeyboardSensor, {})
   )
 
-  const [isLoading, setIsLoading] = useState(true);
-  const { getPatients, loading: patientsLoading } = usePatients();
+  const { getPatients } = usePatients();
   const [patients, setPatients] = useState<z.infer<typeof schema>[]>([]);
 
   // Watch for changes to both initialData and patients state
@@ -347,14 +319,13 @@ export function DataTable({
     if (patients && patients.length > 0) {
       // Ensure patients have _id property by mapping if needed
       const formattedPatients = patients.map(patient => {
-        // Use type assertion to safely access properties
-        const patientObj = patient as any;
+        const patientObj = patient as z.infer<typeof schema>;
         return {
           ...patientObj,
-          _id: patientObj._id || patientObj.id || '' // Fallback to id if _id not present
+          _id: patientObj._id || ''
         };
       });
-      setData(formattedPatients as z.infer<typeof schema>[]);
+      setData(formattedPatients);
     }
   }, [patients]);
 
@@ -370,21 +341,8 @@ export function DataTable({
 
   // Load patients on initial render
   useEffect(() => {
-    let isMounted = true;
-
-    const loadPatients = async () => {
-      if (!isLoading) {
-        await fetchPatients();
-      }
-    };
-
-    loadPatients();
-
-    // Cleanup function
-    return () => {
-      isMounted = false;
-    };
-  }, [isLoading, fetchPatients]);
+    fetchPatients();
+  }, [fetchPatients]);
 
   const dataIds = React.useMemo<UniqueIdentifier[]>(
     () => data?.map(({ _id }) => _id) || [],

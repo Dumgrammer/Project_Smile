@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Cookies from 'js-cookie';
 import axios from 'axios';
+import { encrypt } from '@/lib/crypto';
 
 // Define types
 interface LoginCredentials {
@@ -41,31 +42,25 @@ export function useLogin(): UseLoginReturn {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   
-  // API base URL
-  const API_URL = 'http://localhost:8080/api/v1';
-  
   // Create axios instance
   const api = axios.create({
-    baseURL: API_URL,
+    baseURL: process.env.NEXT_PUBLIC_API_BASE_URL,
     headers: {
       'Content-Type': 'application/json'
     }
   });
 
-  // Store token in cookie
   const storeToken = useCallback((token: string) => {
-    // Set token in a cookie that expires in 15 minutes (same as the token)
     Cookies.set('accessToken', token, { 
-      expires: 1/96, // 15 minutes in days (1/96 of a day)
+      expires: 1/96, 
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict'
     });
   }, []);
 
-  // Store admin data in cookie
   const storeAdminData = useCallback((admin: AdminData) => {
     Cookies.set('adminData', JSON.stringify(admin), { 
-      expires: 7, // 7 days
+      expires: 7,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict'
     });
@@ -77,7 +72,12 @@ export function useLogin(): UseLoginReturn {
     setError(null);
     
     try {
-      const response = await api.post('/admin/login', credentials);
+      const encryptedPayload = encrypt(credentials);
+      
+      const response = await axios.post(`${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/login`, {
+        payload: encryptedPayload,
+      });
+      
       const data = response.data;
 
       if (!data.success) {
@@ -105,10 +105,10 @@ export function useLogin(): UseLoginReturn {
     } finally {
       setIsLoading(false);
     }
-  }, [api, storeToken, storeAdminData]);
+  }, [storeToken, storeAdminData]);
 
   // Refresh token function
-  const refreshToken = useCallback(async (): Promise<boolean> => {
+  useCallback(async (): Promise<boolean> => {
     try {
       const token = Cookies.get('accessToken');
       
