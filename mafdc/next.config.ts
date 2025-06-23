@@ -16,7 +16,7 @@ const nextConfig: NextConfig = {
     // T-Fix: ReferenceError: Buffer is not defined
     config.resolve.fallback = {
       ...config.resolve.fallback,
-      "buffer": require.resolve('buffer/'),
+      "buffer": require.resolve('buffer'),
     };
     
     // Add support for crypto
