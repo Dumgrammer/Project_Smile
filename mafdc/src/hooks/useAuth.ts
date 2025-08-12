@@ -2,14 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getCookie } from 'cookies-next';
+import Cookies from 'js-cookie';
 
 export function useAuth(requireAuth = true) {
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
-    const token = getCookie('auth-token');
+    const token = Cookies.get('accessToken');
     
     if (!token && requireAuth) {
       // Redirect to login if not authenticated and auth is required

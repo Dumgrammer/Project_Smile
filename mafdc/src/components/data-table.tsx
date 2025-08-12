@@ -27,10 +27,10 @@ import {
   IconDotsVertical,
   IconGripVertical,
   IconLayoutColumns,
-  IconLoader,
   IconEye,
   IconPencil,
   IconArchive,
+  IconTrash,
 } from "@tabler/icons-react"
 import {
   ColumnDef,
@@ -78,9 +78,13 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { AddPatientDialog } from "@/components/add-patient-dialog"
+import { UpdatePatientDialog } from "@/components/update-patient-dialog"
+import { ArchiveReasonDialog } from "@/components/archive-reason-dialog"
+import { HardDeleteDialog } from "@/components/hard-delete-dialog"
 import { usePatients } from "@/hooks/patients/patientHooks"
 import { useCallback, useEffect } from "react"
 import { useState } from "react"
+import { Toggle } from "@/components/ui/toggle"
 
 export const schema = z.object({
   _id: z.string(),
@@ -106,6 +110,12 @@ export const schema = z.object({
   allergies: z.string().optional(),
   lastVisit: z.string().optional(),
   isActive: z.boolean(),
+  cases: z.array(z.object({
+    title: z.string(),
+    description: z.string(),
+    treatmentPlan: z.string().optional(),
+    status: z.enum(['Active', 'Completed', 'Cancelled']),
+  })).optional(),
 })
 
 // Create a separate component for the drag handle
@@ -129,7 +139,12 @@ function DragHandle({ id }: { id: string }) {
 }
 
 // Add this before the columns definition
-function ActionsCell({ row }: { row: Row<z.infer<typeof schema>> }) {
+function ActionsCell({ row, onUpdate, onArchive, onHardDelete }: { 
+  row: Row<z.infer<typeof schema>>, 
+  onUpdate: (patient: z.infer<typeof schema>) => void,
+  onArchive: (patientId: string, isActive: boolean) => void,
+  onHardDelete?: (patientId: string, patientName: string) => void
+}) {
   const router = useRouter();
   const [isNavigating, setIsNavigating] = useState(false);
   
@@ -147,11 +162,31 @@ function ActionsCell({ row }: { row: Row<z.infer<typeof schema>> }) {
   };
   
   const handleUpdate = () => {
-    toast.info("Update functionality coming soon");
+    onUpdate(row.original);
   };
   
   const handleArchive = () => {
-    toast.info("Archive functionality coming soon");
+    const isActive = row.original.isActive;
+    const action = isActive ? "archive" : "restore";
+    const actionText = isActive ? "Archive" : "Restore";
+    
+    toast.message(`${actionText} ${row.original.firstName} ${row.original.lastName}?`, {
+      action: {
+        label: actionText,
+        onClick: () => onArchive(row.original._id, !isActive)
+      },
+      cancel: {
+        label: 'Cancel',
+        onClick: () => {}
+      }
+    });
+  };
+
+  const handleHardDelete = () => {
+    if (onHardDelete) {
+      const patientName = `${row.original.firstName} ${row.original.lastName}`;
+      onHardDelete(row.original._id, patientName);
+    }
   };
   
   return (
@@ -172,10 +207,26 @@ function ActionsCell({ row }: { row: Row<z.infer<typeof schema>> }) {
           Update
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={handleArchive} className="text-red-600">
+        <DropdownMenuItem 
+          onClick={handleArchive} 
+          className={row.original.isActive ? "text-red-600" : "text-green-600"}
+        >
           <IconArchive className="mr-2 h-4 w-4" />
-          Archive
+          {row.original.isActive ? "Archive Patient" : "Restore Patient"}
         </DropdownMenuItem>
+        {/* Hard Delete - Only show for archived patients */}
+        {!row.original.isActive && onHardDelete && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem 
+              onClick={handleHardDelete}
+              className="text-red-800 focus:text-red-900 focus:bg-red-50"
+            >
+              <IconTrash className="mr-2 h-4 w-4" />
+              Delete Permanently
+            </DropdownMenuItem>
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -260,32 +311,87 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
     size: 120,
   },
   {
-    accessorKey: "Status",
-    header: "Status",
+    accessorKey: "caseStatus",
+    header: "Case Status",
+    cell: ({ row }) => {
+      const activeCases = row.original.cases?.filter(c => c.status === 'Active') || [];
+      const completedCases = row.original.cases?.filter(c => c.status === 'Completed') || [];
+      const cancelledCases = row.original.cases?.filter(c => c.status === 'Cancelled') || [];
+      
+      let statusText = "No Cases";
+      let statusColor = "text-gray-600 border-gray-200";
+      
+      if (activeCases.length > 0) {
+        statusText = `${activeCases.length} Active`;
+        statusColor = "text-green-600 border-green-200 bg-green-50";
+      } else if (completedCases.length > 0 && cancelledCases.length === 0) {
+        statusText = "All Completed";
+        statusColor = "text-blue-600 border-blue-200 bg-blue-50";
+      } else if (cancelledCases.length > 0) {
+        statusText = "Has Cancelled";
+        statusColor = "text-orange-600 border-orange-200 bg-orange-50";
+      }
+      
+      return (
+        <Badge variant="outline" className={`px-1.5 ${statusColor}`}>
+          {statusText}
+        </Badge>
+      );
+    },
+    size: 120,
+  },
+  {
+    accessorKey: "patientStatus",
+    header: "Patient Status",
     cell: ({ row }) => (
-      <Badge variant="outline" className="text-violet-600 border-violet-200 px-1.5">
+      <Badge 
+        variant="outline" 
+        className={`px-1.5 ${
+          row.original.isActive 
+            ? "text-violet-600 border-violet-200" 
+            : "text-red-600 border-red-200 bg-red-50"
+        }`}
+      >
         {row.original.isActive ? (
           <IconCircleCheckFilled className="fill-violet-500 dark:fill-violet-400 mr-1" />
         ) : (
-          <IconLoader className="text-violet-500 mr-1" />
+          <IconArchive className="text-red-500 mr-1" />
         )}
-        {row.original.isActive ? "Active" : "Inactive"}
+        {row.original.isActive ? "Active" : "Archived"}
       </Badge>
     ),
-    size: 100,
+    size: 120,
   },
   {
     id: "actions",
     header: "Actions",
-    cell: ({ row }) => <ActionsCell row={row} />,
+    cell: ({ row, table }) => {
+      const meta = table.options.meta as any;
+      return <ActionsCell row={row} onUpdate={meta?.onUpdate} onArchive={meta?.onArchive} onHardDelete={meta?.onHardDelete} />;
+    },
     size: 80,
   },
 ]
 
+interface PaginationData {
+  page: number;
+  limit: number;
+  totalPages: number;
+  totalPatients: number;
+}
+
 export function DataTable({
   data: initialData,
+  pagination: externalPagination,
+  showArchived = false,
+  onShowArchivedChange,
+  onPageChange,
 }: {
   data: z.infer<typeof schema>[]
+  pagination?: PaginationData;
+  showArchived?: boolean;
+  onShowArchivedChange?: (showArchived: boolean) => void;
+  onPageChange?: (page: number, limit: number) => void;
 }) {
   const [data, setData] = React.useState(() => initialData)
   const [rowSelection, setRowSelection] = React.useState({})
@@ -295,10 +401,37 @@ export function DataTable({
     []
   )
   const [sorting, setSorting] = React.useState<SortingState>([])
-  const [pagination, setPagination] = React.useState({
+  const [internalPagination, setInternalPagination] = React.useState({
     pageIndex: 0,
     pageSize: 10,
   })
+  
+  // Update dialog state
+  const [updateDialogOpen, setUpdateDialogOpen] = React.useState(false)
+  const [selectedPatient, setSelectedPatient] = React.useState<z.infer<typeof schema> | null>(null)
+  
+  // Archive dialog state
+  const [archiveDialogOpen, setArchiveDialogOpen] = React.useState(false)
+  const [archiveAction, setArchiveAction] = React.useState<{
+    type: 'single' | 'multiple';
+    isArchiving: boolean;
+    patientId?: string;
+    patientIds?: string[];
+    patientName?: string;
+  } | null>(null)
+  
+  // Hard delete dialog state
+  const [hardDeleteDialogOpen, setHardDeleteDialogOpen] = React.useState(false)
+  const [hardDeletePatientData, setHardDeletePatientData] = React.useState<{
+    id: string;
+    name: string;
+  } | null>(null)
+  
+  // Use external pagination if provided, otherwise fall back to internal
+  const currentPage = externalPagination ? externalPagination.page - 1 : internalPagination.pageIndex;
+  const pageSize = externalPagination ? externalPagination.limit : internalPagination.pageSize;
+  const totalPages = externalPagination ? externalPagination.totalPages : Math.ceil(data.length / pageSize);
+  
   const sortableId = React.useId()
   const sensors = useSensors(
     useSensor(MouseSensor, {}),
@@ -306,8 +439,105 @@ export function DataTable({
     useSensor(KeyboardSensor, {})
   )
 
-  const { getPatients } = usePatients();
+  const { getPatients, archivePatient, restorePatient, archiveMultiplePatients, restoreMultiplePatients, hardDeletePatient, loading } = usePatients();
   const [patients, setPatients] = useState<z.infer<typeof schema>[]>([]);
+  
+  // Patient management functions
+  const handleUpdatePatient = (patient: z.infer<typeof schema>) => {
+    setSelectedPatient(patient);
+    setUpdateDialogOpen(true);
+  };
+  
+  const handleArchivePatient = async (patientId: string, newIsActive: boolean) => {
+    const patient = data.find(p => p._id === patientId);
+    const patientName = patient ? `${patient.firstName} ${patient.lastName}` : undefined;
+    
+    setArchiveAction({
+      type: 'single',
+      isArchiving: !newIsActive,
+      patientId,
+      patientName
+    });
+    setArchiveDialogOpen(true);
+  };
+  
+  const handleMultipleArchive = async (isArchive: boolean) => {
+    const selectedRows = table.getFilteredSelectedRowModel().rows;
+    const patientIds = selectedRows.map(row => row.original._id);
+    
+    if (patientIds.length === 0) {
+      toast.error('Please select patients to archive/restore');
+      return;
+    }
+    
+    setArchiveAction({
+      type: 'multiple',
+      isArchiving: isArchive,
+      patientIds
+    });
+    setArchiveDialogOpen(true);
+  };
+
+  const handleArchiveConfirm = async (reason: string) => {
+    if (!archiveAction) return;
+
+    try {
+      if (archiveAction.type === 'single' && archiveAction.patientId) {
+        if (archiveAction.isArchiving) {
+          await archivePatient(archiveAction.patientId, reason);
+        } else {
+          await restorePatient(archiveAction.patientId, reason || undefined);
+        }
+      } else if (archiveAction.type === 'multiple' && archiveAction.patientIds) {
+        if (archiveAction.isArchiving) {
+          await archiveMultiplePatients(archiveAction.patientIds, reason);
+        } else {
+          await restoreMultiplePatients(archiveAction.patientIds, reason || undefined);
+        }
+        setRowSelection({}); // Clear selection after bulk operation
+      }
+      
+      // Refresh data
+      if (onPageChange) {
+        onPageChange(currentPage + 1, pageSize);
+      } else {
+        fetchPatients();
+      }
+    } catch (error) {
+      console.error('Error in archive operation:', error);
+      throw error; // Re-throw to let dialog handle it
+    } finally {
+      setArchiveAction(null);
+    }
+  };
+
+  const handleHardDelete = (patientId: string, patientName: string) => {
+    setHardDeletePatientData({
+      id: patientId,
+      name: patientName
+    });
+    setHardDeleteDialogOpen(true);
+  };
+
+  const handleHardDeleteConfirm = async () => {
+    if (!hardDeletePatientData) return;
+
+    try {
+      await hardDeletePatient(hardDeletePatientData.id);
+      
+      // Refresh data
+      if (onPageChange) {
+        onPageChange(currentPage + 1, pageSize);
+      } else {
+        fetchPatients();
+      }
+    } catch (error) {
+      console.error('Error in hard delete operation:', error);
+      throw error; // Re-throw to let dialog handle it
+    } finally {
+      setHardDeletePatientData(null);
+    }
+  };
 
   // Watch for changes to both initialData and patients state
   React.useEffect(() => {
@@ -339,10 +569,12 @@ export function DataTable({
     }
   }, [getPatients]);
 
-  // Load patients on initial render
+  // Load patients on initial render only if no external pagination is provided
   useEffect(() => {
-    fetchPatients();
-  }, [fetchPatients]);
+    if (!externalPagination) {
+      fetchPatients();
+    }
+  }, [fetchPatients, externalPagination]);
 
   const dataIds = React.useMemo<UniqueIdentifier[]>(
     () => data?.map(({ _id }) => _id) || [],
@@ -357,7 +589,15 @@ export function DataTable({
       columnVisibility,
       rowSelection,
       columnFilters,
-      pagination,
+      pagination: {
+        pageIndex: currentPage,
+        pageSize: pageSize,
+      },
+    },
+    meta: {
+      onUpdate: handleUpdatePatient,
+      onArchive: handleArchivePatient,
+      onHardDelete: handleHardDelete,
     },
     getRowId: (row) => row._id,
     enableRowSelection: true,
@@ -365,7 +605,18 @@ export function DataTable({
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: setColumnVisibility,
-    onPaginationChange: setPagination,
+    onPaginationChange: (updater) => {
+      if (externalPagination && onPageChange) {
+        const newPagination = typeof updater === 'function' 
+          ? updater({ pageIndex: currentPage, pageSize: pageSize })
+          : updater;
+        onPageChange(newPagination.pageIndex + 1, newPagination.pageSize);
+      } else {
+        setInternalPagination(prev => typeof updater === 'function' ? updater(prev) : updater);
+      }
+    },
+    pageCount: externalPagination ? totalPages : -1,
+    manualPagination: !!externalPagination,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
@@ -388,7 +639,37 @@ export function DataTable({
   return (
     <div className="w-full flex-col justify-start gap-6">
       <div className="flex items-center justify-between px-4 lg:px-6">
+        <div className="flex items-center gap-2">
+          {onShowArchivedChange && (
+            <div className="flex items-center gap-2">
+              <Toggle
+                pressed={showArchived}
+                onPressedChange={onShowArchivedChange}
+                variant="outline"
+                size="sm"
+                className="border-slate-200 hover:bg-slate-50 data-[state=on]:bg-red-100 data-[state=on]:text-red-700 data-[state=on]:border-red-200"
+              >
+                {showArchived ? "Show Active Patients" : "Show Archived Patients"}
+              </Toggle>
+            </div>
+          )}
+        </div>
         <div className="flex items-center gap-2 ml-auto">
+          {/* Bulk Actions */}
+          {table.getFilteredSelectedRowModel().rows.length > 0 && (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleMultipleArchive(!showArchived)}
+                className="border-slate-200 hover:bg-slate-50"
+              >
+                <IconArchive className="text-violet-600 mr-1" />
+                {showArchived ? "Restore" : "Archive"} Selected ({table.getFilteredSelectedRowModel().rows.length})
+              </Button>
+            </>
+          )}
+          
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="border-slate-200 hover:bg-slate-50">
@@ -422,10 +703,10 @@ export function DataTable({
                 })}
             </DropdownMenuContent>
           </DropdownMenu>
-          <AddPatientDialog onPatientAdded={fetchPatients} />
+          <AddPatientDialog onPatientAdded={onPageChange ? () => onPageChange(1, pageSize) : fetchPatients} />
         </div>
       </div>
-      <div className="relative flex flex-col gap-4 overflow-auto px-4 lg:px-6">
+      <div className="relative flex flex-col gap-4 overflow-auto px-4 lg:px-6 mt-6">
         <div className="overflow-hidden rounded-lg border border-slate-200 shadow-sm">
           <DndContext
             collisionDetection={closestCenter}
@@ -513,39 +794,59 @@ export function DataTable({
                 Rows per page
               </Label>
               <Select
-                value={`${table.getState().pagination.pageSize}`}
+                value={`${pageSize}`}
                 onValueChange={(value) => {
-                  table.setPageSize(Number(value))
+                  const newPageSize = Number(value);
+                  if (externalPagination && onPageChange) {
+                    onPageChange(1, newPageSize);
+                  } else {
+                    table.setPageSize(newPageSize);
+                  }
                 }}
               >
                 <SelectTrigger className="w-20 border-violet-200" id="rows-per-page">
-                  <SelectValue
-                    placeholder={table.getState().pagination.pageSize}
-                  />
+                  <SelectValue placeholder={pageSize} />
                 </SelectTrigger>
                 <SelectContent side="top">
-                  {[10, 20, 30, 40, 50].map((pageSize) => (
+                  {[10, 20, 30, 40, 50].map((size) => (
                     <div 
-                      key={pageSize} 
+                      key={size} 
                       className="hover:bg-violet-50/20 cursor-pointer px-2 py-1.5 text-sm"
-                      onClick={() => table.setPageSize(Number(pageSize))}
+                      onClick={() => {
+                        if (externalPagination && onPageChange) {
+                          onPageChange(1, size);
+                        } else {
+                          table.setPageSize(size);
+                        }
+                      }}
                     >
-                      {pageSize}
+                      {size}
                     </div>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="flex w-fit items-center justify-center text-sm font-medium">
-              Page <span className="text-violet-600 mx-1 font-semibold">{table.getState().pagination.pageIndex + 1}</span> of{" "}
-              <span className="text-violet-600 mx-1 font-semibold">{table.getPageCount()}</span>
+              Page <span className="text-violet-600 mx-1 font-semibold">{currentPage + 1}</span> of{" "}
+              <span className="text-violet-600 mx-1 font-semibold">{totalPages}</span>
+              {externalPagination && (
+                <span className="ml-2 text-xs text-slate-500">
+                  ({externalPagination.totalPatients} total)
+                </span>
+              )}
             </div>
             <div className="ml-auto flex items-center gap-2 lg:ml-0">
               <Button
                 variant="outline"
                 className="hidden h-8 w-8 p-0 lg:flex border-slate-200 hover:bg-slate-50"
-                onClick={() => table.setPageIndex(0)}
-                disabled={!table.getCanPreviousPage()}
+                onClick={() => {
+                  if (externalPagination && onPageChange) {
+                    onPageChange(1, pageSize);
+                  } else {
+                    table.setPageIndex(0);
+                  }
+                }}
+                disabled={currentPage === 0}
               >
                 <span className="sr-only">Go to first page</span>
                 <IconChevronsLeft className="text-violet-600" />
@@ -554,8 +855,14 @@ export function DataTable({
                 variant="outline"
                 className="size-8 border-slate-200 hover:bg-slate-50"
                 size="icon"
-                onClick={() => table.previousPage()}
-                disabled={!table.getCanPreviousPage()}
+                onClick={() => {
+                  if (externalPagination && onPageChange) {
+                    onPageChange(currentPage, pageSize);
+                  } else {
+                    table.previousPage();
+                  }
+                }}
+                disabled={currentPage === 0}
               >
                 <span className="sr-only">Go to previous page</span>
                 <IconChevronLeft className="text-violet-600" />
@@ -564,8 +871,14 @@ export function DataTable({
                 variant="outline"
                 className="size-8 border-slate-200 hover:bg-slate-50"
                 size="icon"
-                onClick={() => table.nextPage()}
-                disabled={!table.getCanNextPage()}
+                onClick={() => {
+                  if (externalPagination && onPageChange) {
+                    onPageChange(currentPage + 2, pageSize);
+                  } else {
+                    table.nextPage();
+                  }
+                }}
+                disabled={currentPage >= totalPages - 1}
               >
                 <span className="sr-only">Go to next page</span>
                 <IconChevronRight className="text-violet-600" />
@@ -574,8 +887,14 @@ export function DataTable({
                 variant="outline"
                 className="hidden size-8 lg:flex border-slate-200 hover:bg-slate-50"
                 size="icon"
-                onClick={() => table.setPageIndex(table.getPageCount() - 1)}
-                disabled={!table.getCanNextPage()}
+                onClick={() => {
+                  if (externalPagination && onPageChange) {
+                    onPageChange(totalPages, pageSize);
+                  } else {
+                    table.setPageIndex(table.getPageCount() - 1);
+                  }
+                }}
+                disabled={currentPage >= totalPages - 1}
               >
                 <span className="sr-only">Go to last page</span>
                 <IconChevronsRight className="text-violet-600" />
@@ -583,7 +902,43 @@ export function DataTable({
             </div>
           </div>
         </div>
-              </div>
-            </div>
+      </div>
+      
+      {/* Update Patient Dialog */}
+      {selectedPatient && (
+        <UpdatePatientDialog
+          patient={selectedPatient}
+          open={updateDialogOpen}
+          onOpenChange={setUpdateDialogOpen}
+          onPatientUpdated={() => {
+            if (onPageChange) {
+              onPageChange(currentPage + 1, pageSize);
+            } else {
+              fetchPatients();
+            }
+          }}
+        />
+      )}
+
+      {/* Archive Reason Dialog */}
+      <ArchiveReasonDialog
+        open={archiveDialogOpen}
+        onOpenChange={setArchiveDialogOpen}
+        onConfirm={handleArchiveConfirm}
+        patientName={archiveAction?.patientName}
+        patientCount={archiveAction?.patientIds?.length}
+        isArchiving={archiveAction?.isArchiving ?? true}
+        loading={loading}
+      />
+
+      {/* Hard Delete Dialog */}
+      <HardDeleteDialog
+        open={hardDeleteDialogOpen}
+        onOpenChange={setHardDeleteDialogOpen}
+        onConfirm={handleHardDeleteConfirm}
+        patientName={hardDeletePatientData?.name || ""}
+        loading={loading}
+      />
+    </div>
   )
 }

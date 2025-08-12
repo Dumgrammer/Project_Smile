@@ -44,7 +44,7 @@ export function useLogin(): UseLoginReturn {
   
   // Create axios instance
   const api = axios.create({
-    baseURL: process.env.NEXT_PUBLIC_API_BASE_URL,
+    baseURL: process.env.NEXT_PUBLIC_API_URL,
     headers: {
       'Content-Type': 'application/json'
     }
@@ -52,7 +52,7 @@ export function useLogin(): UseLoginReturn {
 
   const storeToken = useCallback((token: string) => {
     Cookies.set('accessToken', token, { 
-      expires: 1/96, 
+      expires: 7, 
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict'
     });
@@ -74,7 +74,7 @@ export function useLogin(): UseLoginReturn {
     try {
       const encryptedPayload = encrypt(credentials);
       
-      const response = await axios.post(`${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/login`, {
+      const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/admin/login`, {
         payload: encryptedPayload,
       });
       

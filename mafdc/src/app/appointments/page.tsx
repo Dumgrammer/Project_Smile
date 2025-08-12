@@ -14,18 +14,15 @@ import {
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { useAppointments, AppointmentNotes } from '@/hooks/appointments/appointmentHooks';
-import { PatientSearch } from "@/components/patient-search";
+import { useAppointments } from '@/hooks/appointments/appointmentHooks';
+import { AppointmentNotes } from '@/interface/appointment';
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CheckCircle2 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { AppointmentDialogs } from "./dialog";
 
 const locales = {
   'en-US': enUS,
@@ -47,7 +44,7 @@ export default function AppointmentsPage() {
   const cancelAppointment = useAppointmentsHook.cancelAppointment;
   const completeAppointment = useAppointmentsHook.completeAppointment;
   const createAppointmentNotes = useAppointmentsHook.createAppointmentNotes;
-  const rescheduleAppointment = useAppointmentsHook.rescheduleAppointment;
+  const updateAppointment = useAppointmentsHook.updateAppointment;
 
   const [events, setEvents] = useState<Array<{
     id: string;
@@ -106,6 +103,7 @@ export default function AppointmentsPage() {
     endTime: string;
   } | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [isRescheduling, setIsRescheduling] = useState(false);
   const [view, setView] = useState<View>(Views.WEEK);
   const [date, setDate] = useState(new Date());
   const [showNotesModal, setShowNotesModal] = useState(false);
@@ -113,7 +111,6 @@ export default function AppointmentsPage() {
     treatmentNotes: '',
     reminderNotes: '',
     payment: {
-      amount: 0,
       status: 'Pending'
     }
   });
@@ -287,6 +284,7 @@ export default function AppointmentsPage() {
     endTime: string;
   }) => {
     setSelectedAppointment(event);
+    setIsRescheduling(false);
     setShowEditModal(true);
   };
 
@@ -294,43 +292,61 @@ export default function AppointmentsPage() {
     if (!selectedAppointment) return;
 
     try {
-      // Get the original appointment date and time
-      const originalDate = selectedAppointment.date;
-      const originalStartTime = selectedAppointment.startTime;
-      const originalEndTime = selectedAppointment.endTime;
+      if (isRescheduling) {
+        // Handle rescheduling
+        const rescheduleData = {
+          date: format(selectedAppointment.start, 'yyyy-MM-dd'),
+          startTime: format(selectedAppointment.start, 'HH:mm'),
+          endTime: format(selectedAppointment.end, 'HH:mm'),
+          title: selectedAppointment.title
+        };
 
-      // Get the new date and time
-      let newDate, newStartTime, newEndTime;
-      
-      // If the date has changed, use the new date
-      if (selectedAppointment.date !== originalDate) {
-        newDate = selectedAppointment.date;
+        await useAppointmentsHook.rescheduleAppointment(selectedAppointment.id, rescheduleData);
+        setShowEditModal(false);
+        setIsRescheduling(false);
+        fetchAppointments();
+        toast.success('Appointment rescheduled successfully and email notification sent to patient');
       } else {
-        newDate = originalDate;
+        // Handle regular updates
+      const updateData: {
+        date?: string;
+        startTime?: string;
+        endTime?: string;
+        status?: 'Scheduled' | 'Finished' | 'Rescheduled' | 'Cancelled';
+        title?: string;
+      } = {};
+
+      // Check if date has changed
+      if (selectedAppointment.date) {
+        updateData.date = format(selectedAppointment.start, 'yyyy-MM-dd');
       }
 
-      // If the time has changed, use the new time
-      if (selectedAppointment.startTime !== originalStartTime) {
-        newStartTime = selectedAppointment.startTime;
-      } else {
-        newStartTime = originalStartTime;
+      // Check if time has changed
+      if (selectedAppointment.startTime) {
+        updateData.startTime = format(selectedAppointment.start, 'HH:mm');
       }
 
-      if (selectedAppointment.endTime !== originalEndTime) {
-        newEndTime = selectedAppointment.endTime;
-      } else {
-        newEndTime = originalEndTime;
+      if (selectedAppointment.endTime) {
+        updateData.endTime = format(selectedAppointment.end, 'HH:mm');
       }
 
-      await rescheduleAppointment(selectedAppointment.id, {
-        date: newDate,
-        startTime: newStartTime,
-        endTime: newEndTime,
-      });
+      // Check if status has changed
+      if (selectedAppointment.status) {
+        updateData.status = selectedAppointment.status as 'Scheduled' | 'Finished' | 'Rescheduled' | 'Cancelled';
+      }
+
+      // Check if title has changed
+      if (selectedAppointment.title) {
+        updateData.title = selectedAppointment.title;
+      }
+
+      // Use updateAppointment for comprehensive updates including status
+      await updateAppointment(selectedAppointment.id, updateData);
 
       setShowEditModal(false);
       fetchAppointments();
-      toast.success('Appointment updated successfully');
+      toast.success('Appointment updated successfully and email notification sent to patient');
+      }
     } catch (err) {
       console.error('Failed to update appointment:', err);
       toast.error('Failed to update appointment');
@@ -351,13 +367,33 @@ export default function AppointmentsPage() {
 
   const handleCompleteAppointment = async (appointmentId: string) => {
     try {
-      await completeAppointment(appointmentId);
+      // Open notes modal for completion
+      setSelectedAppointment(events.find(event => event.id === appointmentId) || null);
+      setShowNotesModal(true);
       setShowEditModal(false);
-      fetchAppointments();
-      toast.success('Appointment marked as completed');
     } catch (err) {
-      console.error('Failed to complete appointment:', err);
-      toast.error('Failed to complete appointment');
+      console.error('Failed to open completion modal:', err);
+      toast.error('Failed to open completion modal');
+    }
+  };
+
+  const handleRescheduleAppointment = async (appointmentId: string) => {
+    try {
+      const appointment = events.find(event => event.id === appointmentId);
+      if (!appointment) {
+        toast.error('Appointment not found');
+        return;
+      }
+      
+      // Set the appointment for rescheduling
+      setSelectedAppointment(appointment);
+      setIsRescheduling(true);
+      setShowEditModal(true);
+      
+      toast.info('Please select a new date and time for the appointment');
+    } catch (err) {
+      console.error('Failed to open reschedule modal:', err);
+      toast.error('Failed to open reschedule modal');
     }
   };
 
@@ -365,12 +401,21 @@ export default function AppointmentsPage() {
     if (!selectedAppointment) return;
 
     try {
-      await createAppointmentNotes(selectedAppointment.id, appointmentNotes);
+      // Complete the appointment with notes
+      await completeAppointment(selectedAppointment.id, appointmentNotes);
       setShowNotesModal(false);
-      toast.success('Notes saved successfully');
+      setAppointmentNotes({
+        treatmentNotes: '',
+        reminderNotes: '',
+        payment: {
+          status: 'Pending'
+        }
+      });
+      fetchAppointments();
+      toast.success('Appointment completed and notes saved successfully');
     } catch (err) {
-      console.error('Failed to save notes:', err);
-      toast.error('Failed to save notes');
+      console.error('Failed to complete appointment with notes:', err);
+      toast.error('Failed to complete appointment with notes');
     }
   };
 
@@ -477,29 +522,28 @@ export default function AppointmentsPage() {
                 </Button>
               </div>
             </div>
-            <div className="px-0 sm:px-4 md:px-6 flex flex-col md:grid md:grid-cols-4 gap-4">
-              {/* Upcoming appointments card - always on top on mobile */}
-              <Card className="mb-4 shadow-none rounded-none md:mb-0 md:shadow md:rounded-lg md:col-span-1">
-                <CardHeader>
-                  <CardTitle className="text-base sm:text-lg">Upcoming</CardTitle>
-                  <CardDescription className="text-xs sm:text-sm">Today&apos;s appointments</CardDescription>
+            <div className="px-2 sm:px-4 lg:px-6 flex flex-col lg:grid lg:grid-cols-5 xl:grid-cols-4 gap-4">
+              {/* Upcoming appointments card - responsive sidebar */}
+              <Card className="mb-4 shadow-sm rounded-lg lg:mb-0 lg:col-span-1">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base lg:text-lg">Today's Schedule</CardTitle>
+                  <CardDescription className="text-xs lg:text-sm">Upcoming appointments</CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
+                <CardContent className="space-y-3 max-h-[300px] lg:max-h-[calc(100vh-350px)] overflow-y-auto">
                     {todaysAppointments.map(event => (
-                      <div key={`today-${event.id}`} className="p-2 border rounded-md">
-                        <div className="font-medium text-sm sm:text-base">{event.title}</div>
-                        <div className="text-xs sm:text-sm text-slate-500">
+                    <div key={`today-${event.id}`} className="p-3 border rounded-lg bg-slate-50 hover:bg-slate-100 transition-colors">
+                      <div className="font-medium text-sm lg:text-base text-violet-700 mb-1">{event.title}</div>
+                      <div className="text-xs lg:text-sm text-slate-600 mb-2">
                           {format(event.start, 'h:mm a')} - {format(event.end, 'h:mm a')}
                         </div>
-                        <div className="mt-2 flex flex-col sm:flex-row gap-2">
-                          {event.status === 'Scheduled' && (
+                      <div className="flex flex-wrap gap-1">
+                          {(event.status === 'Scheduled' || event.status === 'Rescheduled') && (
                             <>
                               <Button 
                                 key={`complete-${event.id}`}
                                 variant="outline" 
                                 size="sm"
-                                className="w-full sm:w-auto"
+                              className="text-xs px-2 py-1 h-7"
                                 onClick={() => handleCompleteAppointment(event.id)}
                               >
                                 Complete
@@ -508,11 +552,8 @@ export default function AppointmentsPage() {
                                 key={`reschedule-${event.id}`}
                                 variant="outline" 
                                 size="sm"
-                                className="w-full sm:w-auto"
-                                onClick={() => {
-                                  setSelectedAppointment(event);
-                                  setShowEditModal(true);
-                                }}
+                              className="text-xs px-2 py-1 h-7"
+                              onClick={() => handleRescheduleAppointment(event.id)}
                               >
                                 Reschedule
                               </Button>
@@ -520,10 +561,9 @@ export default function AppointmentsPage() {
                                 key={`cancel-${event.id}`}
                                 variant="destructive" 
                                 size="sm"
-                                className="w-full sm:w-auto"
+                              className="text-xs px-2 py-1 h-7"
                                 onClick={() => {
                                   handleCancelAppointment(event.id);
-                                  console.log(event);
                                 }}
                               >
                                 Cancel
@@ -531,53 +571,55 @@ export default function AppointmentsPage() {
                             </>
                           )}
                           {event.status === 'Finished' && (
-                            <Badge key={`completed-${event.id}`} className="bg-green-500 w-full sm:w-auto text-center">Completed</Badge>
+                          <Badge key={`completed-${event.id}`} className="bg-green-500 text-xs">Completed</Badge>
                           )}
                           {event.status === 'Cancelled' && (
-                            <Badge key={`cancelled-${event.id}`} variant="destructive" className="w-full sm:w-auto text-center">Cancelled</Badge>
+                          <Badge key={`cancelled-${event.id}`} variant="destructive" className="text-xs">Cancelled</Badge>
                           )}
                         </div>
                       </div>
                     ))}
                     {todaysAppointments.length === 0 && (
-                      <div key="no-appointments" className="text-center py-4 text-slate-500 text-sm">No appointments today</div>
-                    )}
+                    <div key="no-appointments" className="text-center py-8 text-slate-500 text-sm">
+                      <div className="text-2xl mb-2">📅</div>
+                      <div>No appointments today</div>
                   </div>
+                  )}
                 </CardContent>
               </Card>
               {/* Main calendar using react-big-calendar */}
-              <div className="shadow-none rounded-none md:shadow md:rounded-lg md:col-span-3 h-[350px] md:h-[calc(100vh-250px)] bg-white p-2">
-                <Tabs defaultValue="active" className="w-full">
-                    <TabsList className="mb-4 flex flex-row w-full justify-center bg-slate-100 rounded-full shadow-sm p-1 gap-2">
-                      <TabsTrigger value="active" className="flex-1 px-4 py-2 text-sm font-semibold rounded-full transition data-[state=active]:bg-violet-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=inactive]:bg-transparent data-[state=inactive]:text-slate-600">Active Appointments</TabsTrigger>
-                      <TabsTrigger value="archived" className="flex-1 px-4 py-2 text-sm font-semibold rounded-full transition data-[state=active]:bg-violet-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=inactive]:bg-transparent data-[state=inactive]:text-slate-600">Archived Appointments</TabsTrigger>
+              <div className="shadow-sm rounded-lg lg:col-span-4 xl:col-span-3 h-[400px] sm:h-[500px] lg:h-[calc(100vh-200px)] bg-white">
+                <Tabs defaultValue="active" className="w-full h-full flex flex-col">
+                    <TabsList className="mb-4 flex flex-row w-full max-w-md mx-auto justify-center bg-slate-100 rounded-full shadow-sm p-1">
+                      <TabsTrigger value="active" className="flex-1 px-3 py-2 text-sm font-semibold rounded-full transition data-[state=active]:bg-violet-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=inactive]:bg-transparent data-[state=inactive]:text-slate-600">Active</TabsTrigger>
+                      <TabsTrigger value="archived" className="flex-1 px-3 py-2 text-sm font-semibold rounded-full transition data-[state=active]:bg-violet-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=inactive]:bg-transparent data-[state=inactive]:text-slate-600">Archived</TabsTrigger>
                   </TabsList>
 
-                  <TabsContent value="active">
-                      <div className="h-[calc(100vh-250px)] bg-white rounded-none shadow-none md:shadow md:rounded-lg p-2">
-                        {/* Responsive navigation: two rows on mobile, one row split on desktop */}
-                        <div className="flex flex-col gap-2 justify-center items-center mb-4 w-full md:flex-row md:justify-between md:items-center md:mb-6">
-                          {/* Left group: Back, Today, Next */}
-                          <div className="flex flex-row gap-2 w-full max-w-xs justify-center md:max-w-none md:w-auto md:justify-start">
-                            <Button variant="outline" size="sm" onClick={() => navigate('PREV')} className="flex-1 w-full px-0 py-2 text-xs md:text-base md:w-auto md:px-4 md:py-2">Back</Button>
-                            <Button variant="outline" size="sm" onClick={() => navigate('TODAY')} className="flex-1 w-full px-0 py-2 text-xs md:text-base md:w-auto md:px-4 md:py-2">Today</Button>
-                            <Button variant="outline" size="sm" onClick={() => navigate('NEXT')} className="flex-1 w-full px-0 py-2 text-xs md:text-base md:w-auto md:px-4 md:py-2">Next</Button>
+                  <TabsContent value="active" className="flex-1 flex flex-col">
+                      <div className="flex-1 bg-white rounded-lg shadow-sm border p-3 sm:p-4">
+                        {/* Compact responsive navigation */}
+                        <div className="flex flex-col sm:flex-row gap-3 justify-between items-center mb-4">
+                          {/* Navigation controls */}
+                          <div className="flex gap-1 sm:gap-2">
+                            <Button variant="outline" size="sm" onClick={() => navigate('PREV')} className="px-3 py-1.5 text-xs sm:text-sm">← Back</Button>
+                            <Button variant="outline" size="sm" onClick={() => navigate('TODAY')} className="px-3 py-1.5 text-xs sm:text-sm">Today</Button>
+                            <Button variant="outline" size="sm" onClick={() => navigate('NEXT')} className="px-3 py-1.5 text-xs sm:text-sm">Next →</Button>
                         </div>
-                          {/* Right group: Month, Week, Day */}
-                          <div className="flex flex-row gap-2 w-full max-w-xs justify-center md:max-w-none md:w-auto md:justify-end mt-2 md:mt-0">
+                          {/* View controls */}
+                          <div className="flex gap-1 sm:gap-2">
                             {view === Views.MONTH ? (
                               <Popover open={showMonthMenu} onOpenChange={setShowMonthMenu}>
                                 <PopoverTrigger asChild>
                           <Button 
                                     variant="outline"
                                     size="sm"
-                                    className={`flex-1 w-full px-0 py-2 text-xs md:text-base ring-2 ring-violet-200 flex items-center justify-center gap-1 md:w-auto md:px-4 md:py-2`}
+                                    className="px-3 py-1.5 text-xs sm:text-sm ring-2 ring-violet-200 flex items-center gap-1"
                                     onClick={() => setShowMonthMenu((open) => !open)}
                                   >
-                                    Month <span className="ml-1">▼</span>
+                                    Month <span className="text-xs">▼</span>
                                   </Button>
                                 </PopoverTrigger>
-                                <PopoverContent align="center" className="w-48 p-2">
+                                <PopoverContent align="end" className="w-48 p-2">
                                   <button
                                     className="w-full text-left px-2 py-2 rounded hover:bg-slate-100 text-sm"
                                     onClick={() => {
@@ -602,7 +644,7 @@ export default function AppointmentsPage() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                className={`flex-1 w-full px-0 py-2 text-xs md:text-base md:w-auto md:px-4 md:py-2`}
+                                className="px-3 py-1.5 text-xs sm:text-sm"
                             onClick={() => changeView(Views.MONTH)}
                           >
                             Month
@@ -612,7 +654,7 @@ export default function AppointmentsPage() {
                               variant="outline"
                             onClick={() => changeView(Views.WEEK)}
                               size="sm"
-                              className={`flex-1 w-full px-0 py-2 text-xs md:text-base md:w-auto md:px-4 md:py-2 ${view === Views.WEEK ? 'ring-2 ring-violet-200' : ''}`}
+                              className={`px-3 py-1.5 text-xs sm:text-sm ${view === Views.WEEK ? 'ring-2 ring-violet-200' : ''}`}
                           >
                             Week
                           </Button>
@@ -620,23 +662,27 @@ export default function AppointmentsPage() {
                               variant="outline"
                             onClick={() => changeView(Views.DAY)}
                               size="sm"
-                              className={`flex-1 w-full px-0 py-2 text-xs md:text-base md:w-auto md:px-4 md:py-2 ${view === Views.DAY ? 'ring-2 ring-violet-200' : ''}`}
+                              className={`px-3 py-1.5 text-xs sm:text-sm ${view === Views.DAY ? 'ring-2 ring-violet-200' : ''}`}
                           >
                             Day
                           </Button>
                         </div>
                       </div>
-                        <div className="w-full text-center text-xs font-semibold mb-2 md:text-lg">
+                        <div className="w-full text-center text-sm sm:text-lg font-semibold mb-3 text-violet-700">
                           {view === Views.DAY 
                             ? format(date, 'EEEE, MMMM d, yyyy')
                             : format(date, 'MMMM yyyy')}
                         </div>
+                        <div className="flex-1 min-h-0 w-full">
                     <Calendar
                       localizer={localizer}
                       events={events}
                       startAccessor="start"
                       endAccessor="end"
-                        style={{ height: 'calc(100% - 60px)' }}
+                            style={{ 
+                              height: '100%',
+                              minHeight: '300px'
+                            }}
                       onSelectEvent={handleSelectEvent}
                       onSelectSlot={handleSelectSlot}
                       selectable
@@ -647,7 +693,7 @@ export default function AppointmentsPage() {
                           setDate(newDate);
                         }}
                         min={new Date(0, 0, 0, 9, 0, 0)}
-                        max={new Date(0, 0, 0, 19, 0, 0)}
+                            max={new Date(0, 0, 0, 17, 0, 0)}
                         step={30}
                         timeslots={1}
                         formats={{
@@ -659,15 +705,17 @@ export default function AppointmentsPage() {
                         popup
                         showMultiDayTimes={false}
                       />
+                        </div>
                     </div>
                   </TabsContent>
 
-                  <TabsContent value="archived">
-                      <div className="bg-white rounded-none shadow-none md:shadow md:rounded-lg p-4">
-                        <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center mb-6">
-                          <h2 className="text-base sm:text-xl font-semibold">Archived Appointments</h2>
-                          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4 w-full sm:w-auto">
-                            <Label htmlFor="dateFilter" className="whitespace-nowrap text-xs sm:text-sm">Filter by date:</Label>
+                  <TabsContent value="archived" className="flex-1 flex flex-col">
+                      <div className="flex-1 bg-white rounded-lg shadow-sm border p-3 sm:p-4 flex flex-col">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center mb-4">
+                          <h2 className="text-lg sm:text-xl font-semibold text-violet-700">Archived Appointments</h2>
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+                            <Label htmlFor="dateFilter" className="text-xs sm:text-sm text-slate-600">Filter by date:</Label>
+                            <div className="flex gap-2">
                           <Input
                             id="dateFilter"
                             type="date"
@@ -676,10 +724,10 @@ export default function AppointmentsPage() {
                                 const date = new Date(e.target.value);
                                 fetchArchivedAppointments(date);
                               } else {
-                                fetchArchivedAppointments(); // Show all when date is cleared
+                                    fetchArchivedAppointments();
                               }
                             }}
-                              className="w-full sm:w-auto max-w-xs"
+                                className="w-full sm:w-auto max-w-[200px]"
                           />
                           <Button 
                             variant="outline" 
@@ -689,35 +737,35 @@ export default function AppointmentsPage() {
                               if (dateInput) dateInput.value = '';
                               fetchArchivedAppointments();
                             }}
-                              className="w-full sm:w-auto"
+                                className="px-3 py-1.5 text-xs sm:text-sm"
                           >
-                            Show All
+                                Clear
                           </Button>
                         </div>
                       </div>
-                      <div className="space-y-4">
+                        </div>
+                        <div className="flex-1 overflow-y-auto space-y-3">
                         {archivedEvents.length === 0 ? (
-                          <p key="no-archived" className="text-gray-500 text-sm">No archived appointments found</p>
+                            <div className="text-center py-12">
+                              <div className="text-4xl mb-3">📋</div>
+                              <p className="text-slate-500 text-sm">No archived appointments found</p>
+                            </div>
                         ) : (
                           archivedEvents.map((event) => (
                             <div
                               key={`archived-${event.id}`}
-                              className="p-4 border rounded-lg hover:bg-gray-50"
-                            >
-                              <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center">
-                                <div>
-                                  <div className="font-medium text-sm sm:text-base">{event.title}</div>
-                                  <div className="text-xs sm:text-sm text-gray-500">
-                                    Patient&apos;s: {event.patient.firstName} {event.patient.lastName}
+                                className="p-3 sm:p-4 border rounded-lg hover:bg-slate-50 transition-colors"
+                              >
+                                <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-start">
+                                  <div className="flex-1">
+                                    <div className="font-medium text-sm sm:text-base text-violet-700 mb-1">{event.title}</div>
+                                    <div className="text-xs sm:text-sm text-slate-600 space-y-0.5">
+                                      <div>Patient: {event.patient.firstName} {event.patient.lastName}</div>
+                                      <div>Date: {format(new Date(event.date), 'MMMM d, yyyy')}</div>
+                                      <div>Time: {event.startTime} - {event.endTime}</div>
                                   </div>
-                                  <div className="text-xs sm:text-sm text-gray-500">
-                                    Date: {format(new Date(event.date), 'MMMM d, yyyy')}
                                   </div>
-                                  <div className="text-xs sm:text-sm text-gray-500">
-                                    Time: {event.startTime} - {event.endTime}
-                                  </div>
-                                </div>
-                                <Badge key={`archived-badge-${event.id}`} variant="destructive" className="w-full sm:w-auto text-center">Cancelled</Badge>
+                                  <Badge key={`archived-badge-${event.id}`} variant="destructive" className="self-start text-xs">Cancelled</Badge>
                               </div>
                             </div>
                           ))
@@ -732,321 +780,42 @@ export default function AppointmentsPage() {
         </div>
       </SidebarInset>
 
-      {/* Appointment Creation Dialog */}
-      <Dialog open={showAppointmentModal} onOpenChange={setShowAppointmentModal}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-xl">Create New Appointment</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label>Patient</Label>
-              <PatientSearch 
-                onSelect={(patientId) => {
-                    setNewAppointment(prev => ({...prev, patientId}));
-                }}
-                selectedPatientId={newAppointment.patientId}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="title">Appointment Title</Label>
-              <Input 
-                id="title" 
-                placeholder="e.g. Braces Adjustment" 
-                value={newAppointment.title}
-                onChange={(e) => setNewAppointment({...newAppointment, title: e.target.value})}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label>Date</Label>
-              <div className="text-sm font-medium py-2 px-3 border rounded-md bg-gray-50">
-                {format(newAppointment.date, 'EEEE, MMMM d, yyyy')}
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="startTime">Start Time</Label>
-                <Input 
-                  id="startTime" 
-                  type="time" 
-                  min="09:00" 
-                  max="18:45" 
-                  step={900}
-                  value={newAppointment.startTime}
-                  onChange={(e) => setNewAppointment({...newAppointment, startTime: e.target.value})}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="endTime">End Time</Label>
-                <Input 
-                  id="endTime" 
-                  type="time" 
-                  min="09:15" 
-                  max="19:00" 
-                  step={900}
-                  value={newAppointment.endTime}
-                  onChange={(e) => setNewAppointment({...newAppointment, endTime: e.target.value})}
-                />
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAppointmentModal(false)}>Cancel</Button>
-            <Button onClick={handleCreateAppointment}>Create Appointment</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <AppointmentDialogs
+        // Appointment Creation Dialog
+        showAppointmentModal={showAppointmentModal}
+        setShowAppointmentModal={setShowAppointmentModal}
+        newAppointment={newAppointment}
+        setNewAppointment={setNewAppointment}
+        handleCreateAppointment={handleCreateAppointment}
 
-      {/* Edit Appointment Modal */}
-      <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-xl">Appointment Details</DialogTitle>
-          </DialogHeader>
-          {selectedAppointment && (
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label>Patient</Label>
-                <div className="text-sm font-medium py-2 px-3 border rounded-md bg-gray-50">
-                  {selectedAppointment.patient.firstName} {selectedAppointment.patient.middleName || ''} {selectedAppointment.patient.lastName}
-                </div>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="editTitle">Appointment Title</Label>
-                <Input 
-                  id="editTitle" 
-                  value={selectedAppointment.title}
-                  onChange={(e) => setSelectedAppointment({
-                    ...selectedAppointment,
-                    title: e.target.value
-                  })}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label>Date</Label>
-                <Input 
-                  type="date"
-                  value={format(selectedAppointment.start, 'yyyy-MM-dd')}
-                  onChange={(e) => {
-                    const newDate = new Date(e.target.value);
-                    const currentStart = selectedAppointment.start;
-                    const currentEnd = selectedAppointment.end;
-                    newDate.setHours(currentStart.getHours(), currentStart.getMinutes());
-                    const newEnd = new Date(newDate);
-                    newEnd.setHours(currentEnd.getHours(), currentEnd.getMinutes());
-                    setSelectedAppointment({
-                      ...selectedAppointment,
-                      start: newDate,
-                      end: newEnd
-                    });
-                  }}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="editStartTime">Start Time</Label>
-                  <Input 
-                    id="editStartTime" 
-                    type="time" 
-                    min="09:00" 
-                    max="18:45" 
-                    step={900}
-                    value={format(selectedAppointment.start, 'HH:mm')}
-                    onChange={(e) => {
-                      const [hours, minutes] = e.target.value.split(':');
-                      const newStart = new Date(selectedAppointment.start);
-                      newStart.setHours(parseInt(hours), parseInt(minutes));
-                      setSelectedAppointment({
-                        ...selectedAppointment,
-                        start: newStart
-                      });
-                    }}
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="editEndTime">End Time</Label>
-                  <Input 
-                    id="editEndTime" 
-                    type="time" 
-                    min="09:15" 
-                    max="19:00" 
-                    step={900}
-                    value={format(selectedAppointment.end, 'HH:mm')}
-                    onChange={(e) => {
-                      const [hours, minutes] = e.target.value.split(':');
-                      const newEnd = new Date(selectedAppointment.end);
-                      newEnd.setHours(parseInt(hours), parseInt(minutes));
-                      setSelectedAppointment({
-                        ...selectedAppointment,
-                        end: newEnd
-                      });
-                    }}
-                  />
-                </div>
-              </div>
-              <div className="grid gap-2">
-                <Label>Status</Label>
-                <div className="text-sm font-medium py-2 px-3 border rounded-md bg-gray-50">
-                  {selectedAppointment.status}
-                </div>
-              </div>
-            </div>
-          )}
-          <DialogFooter className="flex justify-between">
-            <Button 
-              variant="destructive" 
-              onClick={() => {
-                setSelectedAppointment(null);
-                setShowEditModal(false);
-              }}
-            >
-              Cancel
-            </Button>
-            <div className="flex gap-2">
-              <Button onClick={handleUpdateAppointment}>
-                Save Changes
-              </Button>
-            </div>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        // Edit Appointment Modal
+        showEditModal={showEditModal}
+        setShowEditModal={setShowEditModal}
+        selectedAppointment={selectedAppointment}
+        setSelectedAppointment={setSelectedAppointment}
+        isRescheduling={isRescheduling}
+        setIsRescheduling={setIsRescheduling}
+        handleUpdateAppointment={handleUpdateAppointment}
 
-      {/* Notes Modal */}
-      <Dialog open={showNotesModal} onOpenChange={setShowNotesModal}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-xl">Appointment Notes</DialogTitle>
-          </DialogHeader>
-          {selectedAppointment && (
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label>Patient</Label>
-                <div className="text-sm font-medium py-2 px-3 border rounded-md bg-gray-50">
-                  {selectedAppointment.patient.firstName} {selectedAppointment.patient.lastName}
-                </div>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="treatmentNotes">Treatment Notes</Label>
-                <Textarea
-                  id="treatmentNotes"
-                  placeholder="Enter treatment details..."
-                  value={appointmentNotes.treatmentNotes}
-                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setAppointmentNotes({
-                    ...appointmentNotes,
-                    treatmentNotes: e.target.value
-                  })}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="reminderNotes">Reminder Notes</Label>
-                <Textarea
-                  id="reminderNotes"
-                  placeholder="Enter any reminders or follow-up notes..."
-                  value={appointmentNotes.reminderNotes}
-                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setAppointmentNotes({
-                    ...appointmentNotes,
-                    reminderNotes: e.target.value
-                  })}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="paymentAmount">Payment Amount</Label>
-                <Input
-                  id="paymentAmount"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={appointmentNotes.payment.amount}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAppointmentNotes({
-                    ...appointmentNotes,
-                    payment: {
-                      ...appointmentNotes.payment,
-                      amount: parseFloat(e.target.value) || 0
-                    }
-                  })}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="paymentStatus">Payment Status</Label>
-                <Select
-                  value={appointmentNotes.payment.status}
-                  onValueChange={(value: 'Paid' | 'Pending' | 'Partial') => setAppointmentNotes({
-                    ...appointmentNotes,
-                    payment: {
-                      ...appointmentNotes.payment,
-                      status: value
-                    }
-                  })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select payment status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Paid">Paid</SelectItem>
-                    <SelectItem value="Pending">Pending</SelectItem>
-                    <SelectItem value="Partial">Partial</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowNotesModal(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSaveNotes}>
-              Save Notes
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        // Notes Modal
+        showNotesModal={showNotesModal}
+        setShowNotesModal={setShowNotesModal}
+        appointmentNotes={appointmentNotes}
+        setAppointmentNotes={setAppointmentNotes}
+        handleSaveNotes={handleSaveNotes}
 
-      {/* Success Modal */}
-      <Dialog open={showSuccessModal} onOpenChange={setShowSuccessModal}>
-        <DialogContent className="sm:max-w-md">
-          <div className="flex flex-col items-center justify-center py-6">
-            <CheckCircle2 className="h-16 w-16 text-green-500 mb-4" />
-            <DialogTitle className="text-xl text-center">{successMessage}</DialogTitle>
-            <p className="text-sm text-gray-500 text-center mt-2">
-              The changes have been saved successfully.
-            </p>
-          </div>
-          <DialogFooter>
-            <Button 
-              className="w-full" 
-              onClick={() => setShowSuccessModal(false)}
-            >
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        // Success Modal
+        showSuccessModal={showSuccessModal}
+        setShowSuccessModal={setShowSuccessModal}
+        successMessage={successMessage}
 
-        {/* Month Appointments Modal */}
-        <Dialog open={showMonthAppointmentsModal} onOpenChange={setShowMonthAppointmentsModal}>
-          <DialogContent className="sm:max-w-lg">
-            <DialogHeader>
-              <DialogTitle className="text-xl">Appointments for {format(date, 'MMMM yyyy')}</DialogTitle>
-            </DialogHeader>
-            <div className="max-h-[60vh] overflow-y-auto divide-y">
-              {monthAppointments.length === 0 ? (
-                <div className="text-center text-gray-500 py-8">No appointments this month.</div>
-              ) : (
-                monthAppointments.map(event => (
-                  <div key={event.id} className="py-3">
-                    <div className="font-medium text-sm">{event.title}</div>
-                    <div className="text-xs text-gray-500">{format(event.start, 'EEEE, MMMM d, yyyy h:mm a')}</div>
-                    <div className="text-xs text-gray-500">Patient: {event.patient?.firstName} {event.patient?.lastName}</div>
-                    <div className="text-xs text-gray-500">Status: {event.status}</div>
-                  </div>
-                ))
-              )}
-            </div>
-            <DialogFooter>
-              <Button className="w-full" onClick={() => setShowMonthAppointmentsModal(false)}>Close</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        // Month Appointments Modal
+        showMonthAppointmentsModal={showMonthAppointmentsModal}
+        setShowMonthAppointmentsModal={setShowMonthAppointmentsModal}
+        monthAppointments={monthAppointments}
+        date={date}
+      />
+
     </SidebarProvider>
   );
 } 

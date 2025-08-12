@@ -9,9 +9,11 @@ export interface DashboardStats {
   growthRate: number;
 }
 
-export interface RevenueTrendPoint {
+export interface ActivityTrendPoint {
   date: string;
-  revenue: number;
+  treatedPatients: number;
+  scheduledAppointments: number;
+  inquiries: number;
 }
 
 interface ApiError {
@@ -65,8 +67,8 @@ export function useDashboardStats() {
   return { stats, loading, error };
 }
 
-export function useRevenueTrend() {
-  const [data, setData] = useState<RevenueTrendPoint[]>([]);
+export function useActivityTrend() {
+  const [data, setData] = useState<ActivityTrendPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -75,7 +77,7 @@ export function useRevenueTrend() {
       setLoading(true);
       setError(null);
       try {
-        const res = await api.get('/admin/dashboard/revenue-trend');
+        const res = await api.get('/admin/dashboard/activity-trend');
         setData(res.data);
       } catch (err: unknown) {
         const apiError = err as ApiError;

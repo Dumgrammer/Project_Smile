@@ -1,36 +1,120 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# MAFDC - Dental Clinic Management System
 
-## Getting Started
+A comprehensive dental clinic management system built with Next.js, featuring patient management, appointment booking, and administrative tools.
 
-First, run the development server:
+## Features
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- **Patient Management**: Complete CRUD operations for patient records
+- **Appointment Booking**: Online appointment scheduling system with real-time availability
+- **Advanced Patient Search**: Powerful search functionality using POST requests with filters
+- **Authentication**: Secure login system with JWT tokens
+- **Responsive Design**: Modern UI built with Shadcn UI components
+- **Real-time Updates**: Live data synchronization with backend APIs
+
+## API Integration
+
+### Patient Search API
+
+The application now uses a more secure and flexible POST-based search endpoint instead of query parameters:
+
+**Endpoint**: `POST /api/v1/patients/search`
+
+**Request Body**:
+```json
+{
+  "search": "john@email.com",
+  "page": 1,
+  "limit": 10,
+  "filters": {
+    "gender": "Male",
+    "ageRange": { "min": 18, "max": 65 },
+    "isActive": true,
+    "lastVisit": { "from": "2024-01-01", "to": "2024-12-31" }
+  }
+}
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+**Benefits of POST over GET for search**:
+- 🔒 **Security**: Search parameters not exposed in URLs/logs
+- 📊 **Complex Queries**: Easier to send complex filter objects
+- 📏 **No URL Limits**: No restrictions on data size
+- 🎯 **Better Performance**: More efficient for complex searches
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+**Available Filters**:
+- `search`: Text search across firstName, lastName, contactNumber, email
+- `gender`: Filter by patient gender
+- `ageRange`: Filter by age range (min/max)
+- `isActive`: Filter by patient status
+- `lastVisit`: Filter by last visit date range
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Appointment Booking Flow
 
-## Learn More
+1. **Patient Search**: Patients enter their email address to find their record
+2. **Verification**: Simple 6-digit code verification (can be enhanced with email/SMS)
+3. **Service Selection**: Choose from available dental services
+4. **Date & Time**: Select preferred appointment date and time slot
+5. **Confirmation**: Review details and confirm booking
+6. **Success**: Appointment is created and confirmation is shown
 
-To learn more about Next.js, take a look at the following resources:
+## Project Structure
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```
+mafdc/
+├── src/
+│   ├── app/                    # Next.js app router pages
+│   │   ├── onlineappointment/ # Online appointment booking
+│   │   ├── patients/          # Patient management
+│   │   └── dashboard/         # Admin dashboard
+│   ├── components/            # Reusable UI components
+│   │   ├── search-your-record.tsx    # Patient search component
+│   │   └── ui/               # Base UI components
+│   ├── hooks/                # Custom React hooks
+│   │   ├── patients/         # Patient-related hooks
+│   │   └── appointments/     # Appointment-related hooks
+│   └── lib/                  # Utility functions
+└── public/                   # Static assets
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Technologies Used
 
-## Deploy on Vercel
+- **Frontend**: Next.js 15, React 18, TypeScript
+- **Styling**: Tailwind CSS
+- **UI Components**: Radix UI, Lucide React icons
+- **State Management**: React hooks
+- **HTTP Client**: Axios
+- **Date Handling**: date-fns
+- **Notifications**: Sonner toast
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Development
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Running Tests
+```bash
+npm run test
+```
+
+### Building for Production
+```bash
+npm run build
+npm start
+```
+
+### Code Quality
+```bash
+npm run lint
+```
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
+
+## License
+
+This project is licensed under the MIT License.
+
+## Support
+
+For support and questions, please contact the development team or create an issue in the repository.

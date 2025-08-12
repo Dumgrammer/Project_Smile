@@ -10,8 +10,7 @@ import {
   IconInnerShadowTop,
   IconListDetails,
   IconLogout,
-  IconSearch,
-  IconSettings,
+  IconMessageCircle
 } from "@tabler/icons-react"
 
 import { NavMain } from "@/components/nav-main"
@@ -67,6 +66,16 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       title: "Patients",
       url: "/patients/list",
       icon: IconChartBar,
+    },
+    {
+      title: "Inquiries",
+      url: "/inquiries",
+      icon: IconMessageCircle,
+    },
+    {
+      title: "Logs",
+      url: "/logs",
+      icon: IconListDetails,
     }
   ], []);
 
@@ -78,21 +87,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   // Memoize secondary navigation items
   const navSecondary = useMemo(() => [
-    {
-      title: "Settings",
-      url: "/dashboard/settings",
-      icon: IconSettings,
-    },
-    {
-      title: "Get Help",
-      url: "/dashboard/help",
-      icon: IconHelp,
-    },
-    {
-      title: "Search",
-      url: "#",
-      icon: IconSearch,
-    },
     {
       title: "Logout",
       url: "#",

@@ -79,38 +79,39 @@ export function SectionCards({
       </Card>
       <Card className="@container/card border border-slate-200 shadow-sm">
         <CardHeader>
-          <CardDescription className="text-slate-500">Total Revenue (Paid)</CardDescription>
+          <CardDescription className="text-slate-500">Inquiries</CardDescription>
           <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-            ₱{totalRevenue?.toLocaleString(undefined, { minimumFractionDigits: 2 }) ?? '--'}
+            {activePatients ?? '--'}
           </CardTitle>
           <CardAction>
             <Badge variant="outline" className="text-green-600 border-slate-200">
               <IconTrendingUp className="text-green-500" />
-              Paid
+              Active
             </Badge>
           </CardAction>
         </CardHeader>
         <CardFooter className="flex-col items-start gap-1.5 text-sm">
-          <div className="text-slate-500">Revenue from paid notes this month</div>
+          <div className="text-slate-500">Total inquiries received</div>
         </CardFooter>
       </Card>
       <Card className="@container/card border border-slate-200 shadow-sm">
         <CardHeader>
-          <CardDescription className="text-slate-500">Growth Rate</CardDescription>
+          <CardDescription className="text-slate-500">Scheduled Appointments</CardDescription>
           <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-            {growthRate !== undefined && growthRate !== null ? `${growthRate}%` : '--'}
+            {activePatients ?? '--'}
           </CardTitle>
           <CardAction>
             <Badge variant="outline" className="text-violet-600 border-slate-200">
               <IconTrendingUp className="text-violet-500" />
-              {growthRate !== undefined && growthRate !== null && growthRate >= 0 ? `+${growthRate}%` : `${growthRate}%`}
+              This Month
             </Badge>
           </CardAction>
         </CardHeader>
         <CardFooter className="flex-col items-start gap-1.5 text-sm">
-          <div className="text-slate-500">Revenue growth compared to last month</div>
+          <div className="text-slate-500">Total scheduled appointments this month</div>
         </CardFooter>
       </Card>
+
     </div>
   )
 }

@@ -7,7 +7,7 @@ export default function NavigationWrapper({ children }: { children: React.ReactN
   const pathname = usePathname();
   
   // List of admin routes that should not show the navigation
-  const adminRoutes = ['/login', '/dashboard', '/patients', '/appointments'];
+  const adminRoutes = ['/login', '/dashboard', '/patients', '/appointments', '/inquiries', '/logs'];
   
   // Check if current path starts with any admin route
   const isAdminPage = adminRoutes.some(route => pathname?.startsWith(route));

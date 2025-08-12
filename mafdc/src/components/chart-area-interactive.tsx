@@ -28,14 +28,14 @@ import {
   ToggleGroup,
   ToggleGroupItem,
 } from "@/components/ui/toggle-group"
-import { useRevenueTrend } from '@/hooks/dashboard/dashboardHooks';
+import { useActivityTrend } from '@/hooks/dashboard/dashboardHooks';
 
 export const description = "An interactive area chart"
 
 export function ChartAreaInteractive() {
   const isMobile = useIsMobile()
   const [timeRange, setTimeRange] = React.useState("90d")
-  const { data: revenueData, loading, error } = useRevenueTrend();
+  const { data: activityData, loading, error } = useActivityTrend();
 
   React.useEffect(() => {
     if (isMobile) {
@@ -43,9 +43,9 @@ export function ChartAreaInteractive() {
     }
   }, [isMobile])
 
-  // Filter revenue data by time range
+  // Filter activity data by time range
   const filteredData = React.useMemo(() => {
-    if (!revenueData || revenueData.length === 0) return [];
+    if (!activityData || activityData.length === 0) return [];
     const referenceDate = new Date();
     let daysToSubtract = 90;
     if (timeRange === "30d") {
@@ -55,26 +55,34 @@ export function ChartAreaInteractive() {
     }
     const startDate = new Date(referenceDate);
     startDate.setDate(referenceDate.getDate() - daysToSubtract + 1);
-    return revenueData.filter((item) => {
+    return activityData.filter((item) => {
       const date = new Date(item.date);
       return date >= startDate && date <= referenceDate;
     });
-  }, [revenueData, timeRange]);
+  }, [activityData, timeRange]);
 
   const chartConfig = {
-    revenue: {
-      label: "Revenue",
+    treatedPatients: {
+      label: "Treated Patients",
       color: "hsl(220, 70%, 60%)",
+    },
+    scheduledAppointments: {
+      label: "Scheduled Appointments", 
+      color: "hsl(160, 60%, 45%)",
+    },
+    inquiries: {
+      label: "Inquiries",
+      color: "hsl(30, 80%, 55%)",
     },
   };
 
   return (
     <Card className="@container/card border border-slate-200 shadow-sm">
       <CardHeader>
-        <CardTitle>Total Revenue</CardTitle>
+        <CardTitle>Clinic Metrics</CardTitle>
         <CardDescription>
           <span className="hidden @[540px]/card:block">
-            Revenue for the selected period
+            Overall Clinic Statistics
           </span>
           <span className="@[540px]/card:hidden">Selected period</span>
         </CardDescription>
@@ -125,17 +133,17 @@ export function ChartAreaInteractive() {
           >
             <AreaChart data={filteredData}>
               <defs>
-                <linearGradient id="fillRevenue" x1="0" y1="0" x2="0" y2="1">
-                  <stop
-                    offset="5%"
-                    stopColor="hsl(220, 70%, 60%)"
-                    stopOpacity={0.8}
-                  />
-                  <stop
-                    offset="95%"
-                    stopColor="hsl(220, 70%, 60%)"
-                    stopOpacity={0.1}
-                  />
+                <linearGradient id="fillTreatedPatients" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="hsl(220, 70%, 60%)" stopOpacity={0.8} />
+                  <stop offset="95%" stopColor="hsl(220, 70%, 60%)" stopOpacity={0.1} />
+                </linearGradient>
+                <linearGradient id="fillScheduledAppointments" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="hsl(160, 60%, 45%)" stopOpacity={0.8} />
+                  <stop offset="95%" stopColor="hsl(160, 60%, 45%)" stopOpacity={0.1} />
+                </linearGradient>
+                <linearGradient id="fillInquiries" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="hsl(30, 80%, 55%)" stopOpacity={0.8} />
+                  <stop offset="95%" stopColor="hsl(30, 80%, 55%)" stopOpacity={0.1} />
                 </linearGradient>
               </defs>
               <CartesianGrid vertical={false} />
@@ -169,10 +177,24 @@ export function ChartAreaInteractive() {
                 }
               />
               <Area
-                dataKey="revenue"
+                dataKey="treatedPatients"
                 type="natural"
-                fill="url(#fillRevenue)"
+                fill="url(#fillTreatedPatients)"
                 stroke="hsl(220, 70%, 60%)"
+                stackId="a"
+              />
+              <Area
+                dataKey="scheduledAppointments"
+                type="natural"
+                fill="url(#fillScheduledAppointments)"
+                stroke="hsl(160, 60%, 45%)"
+                stackId="a"
+              />
+              <Area
+                dataKey="inquiries"
+                type="natural"
+                fill="url(#fillInquiries)"
+                stroke="hsl(30, 80%, 55%)"
                 stackId="a"
               />
             </AreaChart>

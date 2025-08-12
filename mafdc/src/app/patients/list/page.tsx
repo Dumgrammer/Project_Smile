@@ -19,13 +19,25 @@ export default function PatientsList() {
   const [isLoading, setIsLoading] = useState(true);
   const { getPatients, loading: patientsLoading } = usePatients();
   const [patients, setPatients] = useState<z.infer<typeof schema>[]>([]);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 10,
+    totalPages: 0,
+    totalPatients: 0
+  });
+  const [showArchived, setShowArchived] = useState(false);
 
   // Memoize the fetchPatients function
-  const fetchPatients = useCallback(async () => {
+  const fetchPatients = useCallback(async (page = 1, limit = 10, showArchived = false) => {
     try {
-      const response = await getPatients();
-      console.log(response);
+      const response = await getPatients(page, limit, '', showArchived);
       setPatients(response.patients);
+      setPagination({
+        page: response.currentPage,
+        limit: limit,
+        totalPages: response.totalPages,
+        totalPatients: response.totalPatients
+      });
     } catch (error) {
       console.error('Error fetching patients:', error);
     }
@@ -45,16 +57,14 @@ export default function PatientsList() {
   }, [router]);
 
   useEffect(() => {
-
     const loadPatients = async () => {
       if (!isLoading) {
-        await fetchPatients();
+        await fetchPatients(1, 10, showArchived);
       }
     };
 
     loadPatients();
-
-  }, [isLoading, fetchPatients]);
+  }, [isLoading, showArchived, fetchPatients]);
 
   if (isLoading || patientsLoading) {
     return (
@@ -88,7 +98,13 @@ export default function PatientsList() {
                 </p>
               </div>
               <div className="px-4 lg:px-6">
-                <DataTable data={patients} />
+                <DataTable 
+                  data={patients} 
+                  pagination={pagination}
+                  showArchived={showArchived}
+                  onShowArchivedChange={setShowArchived}
+                  onPageChange={(page, limit) => fetchPatients(page, limit, showArchived)}
+                />
               </div>
             </div>
           </div>

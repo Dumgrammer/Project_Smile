@@ -1,10 +1,12 @@
 import Image from "next/image";
+import { Button } from "@/components/ui/button";
 import { 
   Card, 
   CardContent,
   CardHeader, 
   CardTitle 
 } from "@/components/ui/card";
+import Link from "next/link";
 
 const services = [
   {
@@ -109,9 +111,11 @@ export default function ServicesPage() {
             <p className="max-w-[600px] text-violet-200">
               Schedule your appointment today and take the first step towards a healthier, more beautiful smile.
             </p>
-            <button className="bg-white hover:bg-gray-100 text-violet-900 px-8 py-4 rounded-md text-base font-medium transition-colors duration-300">
-              Book an Appointment
-            </button>
+            <Link href="/onlineappointment">
+              <Button className="bg-white hover:bg-gray-100 text-violet-900 px-8 py-6 h-auto text-base font-medium">
+                Book an Appointment
+              </Button>
+            </Link>
           </div>
         </div>
       </section>

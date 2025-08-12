@@ -26,9 +26,11 @@ export default function Home() {
                 MA Florencio Dental Clinic provides exceptional dental care with state-of-the-art technology and a gentle touch.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 pt-4 justify-center lg:justify-start">
+                <Link href="/onlineappointment">
                 <Button className="bg-violet-600 hover:bg-violet-700 text-white px-8 py-6 h-auto text-base font-medium w-full sm:w-auto">
-                  Look at your records
+                  Create an appointment
                 </Button>
+                </Link>
                 <Link href="/services" className="w-full sm:w-auto">
                   <Button variant="outline" className="border-violet-300 hover:bg-violet-50 text-violet-700 px-8 py-6 h-auto text-base font-medium w-full">
                     Our Services
