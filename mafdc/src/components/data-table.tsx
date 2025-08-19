@@ -138,11 +138,18 @@ function DragHandle({ id }: { id: string }) {
   )
 }
 
+// Define the table meta interface
+interface TableMeta {
+  onUpdate?: (patient: z.infer<typeof schema>) => void;
+  onArchive?: (patientId: string, isActive: boolean) => void;
+  onHardDelete?: (patientId: string, patientName: string) => void;
+}
+
 // Add this before the columns definition
 function ActionsCell({ row, onUpdate, onArchive, onHardDelete }: { 
   row: Row<z.infer<typeof schema>>, 
-  onUpdate: (patient: z.infer<typeof schema>) => void,
-  onArchive: (patientId: string, isActive: boolean) => void,
+  onUpdate?: (patient: z.infer<typeof schema>) => void,
+  onArchive?: (patientId: string, isActive: boolean) => void,
   onHardDelete?: (patientId: string, patientName: string) => void
 }) {
   const router = useRouter();
@@ -162,18 +169,19 @@ function ActionsCell({ row, onUpdate, onArchive, onHardDelete }: {
   };
   
   const handleUpdate = () => {
-    onUpdate(row.original);
+    if (onUpdate) {
+      onUpdate(row.original);
+    }
   };
   
   const handleArchive = () => {
     const isActive = row.original.isActive;
-    const action = isActive ? "archive" : "restore";
     const actionText = isActive ? "Archive" : "Restore";
     
     toast.message(`${actionText} ${row.original.firstName} ${row.original.lastName}?`, {
       action: {
         label: actionText,
-        onClick: () => onArchive(row.original._id, !isActive)
+        onClick: () => onArchive?.(row.original._id, !isActive)
       },
       cancel: {
         label: 'Cancel',
@@ -366,7 +374,7 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
     id: "actions",
     header: "Actions",
     cell: ({ row, table }) => {
-      const meta = table.options.meta as any;
+      const meta = table.options.meta as TableMeta;
       return <ActionsCell row={row} onUpdate={meta?.onUpdate} onArchive={meta?.onArchive} onHardDelete={meta?.onHardDelete} />;
     },
     size: 80,

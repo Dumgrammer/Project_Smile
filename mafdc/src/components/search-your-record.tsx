@@ -7,9 +7,9 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Search, Mail, Shield, AlertCircle, Phone, MessageSquare } from "lucide-react";
+import { Search, Mail, Shield, AlertCircle,  MessageSquare } from "lucide-react";
 import { usePatients } from "@/hooks/patients/patientHooks";
-import type { Patient } from "@/hooks/patients/patientHooks";
+import type { Patient } from "@/interface/patient";
 
 interface SearchYourRecordProps {
   onRecordFound: (patientData: Patient) => void;
@@ -176,7 +176,7 @@ export function SearchYourRecord({ onRecordFound }: SearchYourRecordProps) {
               
               <div className="text-center">
                 <p className="text-sm text-gray-500">
-                  Don't have a record?{' '}
+                  Don&apos;t have a record?{' '}
                   <a href="/contact" className="text-violet-600 hover:underline">
                     Contact us
                   </a>
@@ -225,7 +225,7 @@ export function SearchYourRecord({ onRecordFound }: SearchYourRecordProps) {
               
               <div className="text-center">
                 <p className="text-sm text-gray-500">
-                  Didn't receive the code?{' '}
+                  Didn&apos;t receive the code?{' '}
                   <button 
                     onClick={handleEmailSearch}
                     disabled={isLoading}
@@ -250,7 +250,7 @@ export function SearchYourRecord({ onRecordFound }: SearchYourRecordProps) {
               </div>
               <div>
                 <DialogTitle className="text-xl">No Record Found</DialogTitle>
-                <p className="text-sm text-gray-500">We couldn't find your patient record</p>
+                <p className="text-sm text-gray-500">We couldn&apos;t find your patient record</p>
               </div>
             </div>
           </DialogHeader>
@@ -258,11 +258,11 @@ export function SearchYourRecord({ onRecordFound }: SearchYourRecordProps) {
           <div className="space-y-4 py-4">
             <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
               <p className="text-sm text-orange-800">
-                We couldn't find a patient record associated with <strong>{email}</strong>. 
+                We couldn&apos;t find a patient record associated with <strong>{email}</strong>. 
                 This could be because:
               </p>
               <ul className="mt-2 text-sm text-orange-700 space-y-1">
-                <li>• You haven't visited our clinic before</li>
+                <li>• You haven&apos;t visited our clinic before</li>
                 <li>• The email address is different from what we have on file</li>
                 <li>• There might be a typo in the email address</li>
               </ul>

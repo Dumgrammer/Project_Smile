@@ -5,6 +5,22 @@ import Cookies from 'js-cookie';
 import { encrypt, decrypt } from '@/lib/crypto';
 import { Patient, PatientResponse, CreatePatientInput } from '@/interface/patient';
 
+// Type guard for error objects
+interface ApiError {
+  response?: {
+    status?: number;
+    data?: {
+      data?: string;
+      error?: string;
+    };
+  };
+  message?: string;
+}
+
+function isApiError(err: unknown): err is ApiError {
+  return err !== null && typeof err === 'object' && 'response' in err;
+}
+
 
 // Create axios instance with base URL and default headers
 const api = axios.create({
@@ -85,19 +101,19 @@ export const usePatients = () => {
         const decryptedResponse = decrypt(response.data.data);
         return decryptedResponse as PatientResponse;
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       let errorMessage = 'Failed to fetch patients';
       
-      if (err.response?.data?.data) {
+      if (isApiError(err) && err.response?.data?.data) {
         try {
           const decryptedError = decrypt(err.response.data.data);
           errorMessage = String(decryptedError.error || errorMessage);
         } catch (decryptError) {
           console.error('Error decrypting error response:', decryptError);
         }
-      } else if (err.response?.data?.error) {
+      } else if (isApiError(err) && err.response?.data?.error) {
         errorMessage = String(err.response.data.error);
-      } else if (err.message) {
+      } else if (isApiError(err) && err.message) {
         errorMessage = String(err.message);
       }
       
@@ -131,19 +147,19 @@ export const usePatients = () => {
       // Decrypt the entire response
       const decryptedResponse = decrypt(response.data.data);
       return decryptedResponse as PatientResponse;
-    } catch (err: any) {
+    } catch (err: unknown) {
       let errorMessage = 'Failed to search patients';
       
-      if (err.response?.data?.data) {
+      if (isApiError(err) && err.response?.data?.data) {
         try {
           const decryptedError = decrypt(err.response.data.data);
           errorMessage = String(decryptedError.error || errorMessage);
         } catch (decryptError) {
           console.error('Error decrypting error response:', decryptError);
         }
-      } else if (err.response?.data?.error) {
+      } else if (isApiError(err) && err.response?.data?.error) {
         errorMessage = String(err.response.data.error);
-      } else if (err.message) {
+      } else if (isApiError(err) && err.message) {
         errorMessage = String(err.message);
       }
       
@@ -165,19 +181,19 @@ export const usePatients = () => {
       // Decrypt the entire response
       const decryptedResponse = decrypt(response.data.data);
       return decryptedResponse.patient as Patient;
-    } catch (err: any) {
+    } catch (err: unknown) {
       let errorMessage = 'Failed to fetch patient details';
       
-      if (err.response?.data?.data) {
+      if (isApiError(err) && err.response?.data?.data) {
         try {
           const decryptedError = decrypt(err.response.data.data);
           errorMessage = String(decryptedError.error || errorMessage);
         } catch (decryptError) {
           console.error('Error decrypting error response:', decryptError);
         }
-      } else if (err.response?.data?.error) {
+      } else if (isApiError(err) && err.response?.data?.error) {
         errorMessage = String(err.response.data.error);
-      } else if (err.message) {
+      } else if (isApiError(err) && err.message) {
         errorMessage = String(err.message);
       }
       
@@ -207,19 +223,19 @@ export const usePatients = () => {
         message: String(decryptedResponse.message || 'Patient created successfully'),
         patient: decryptedResponse.patient as Patient
       };
-    } catch (err: any) {
+    } catch (err: unknown) {
       let errorMessage = 'Failed to create patient';
       
-      if (err.response?.data?.data) {
+      if (isApiError(err) && err.response?.data?.data) {
         try {
           const decryptedError = decrypt(err.response.data.data);
           errorMessage = String(decryptedError.error || errorMessage);
         } catch (decryptError) {
           console.error('Error decrypting error response:', decryptError);
         }
-      } else if (err.response?.data?.error) {
+      } else if (isApiError(err) && err.response?.data?.error) {
         errorMessage = String(err.response.data.error);
-      } else if (err.message) {
+      } else if (isApiError(err) && err.message) {
         errorMessage = String(err.message);
       }
       
@@ -249,19 +265,19 @@ export const usePatients = () => {
         message: String(decryptedResponse.message || 'Patient updated successfully'),
         patient: decryptedResponse.patient as Patient
       };
-    } catch (err: any) {
+    } catch (err: unknown) {
       let errorMessage = 'Failed to update patient';
       
-      if (err.response?.data?.data) {
+      if (isApiError(err) && err.response?.data?.data) {
         try {
           const decryptedError = decrypt(err.response.data.data);
           errorMessage = String(decryptedError.error || errorMessage);
         } catch (decryptError) {
           console.error('Error decrypting error response:', decryptError);
         }
-      } else if (err.response?.data?.error) {
+      } else if (isApiError(err) && err.response?.data?.error) {
         errorMessage = String(err.response.data.error);
-      } else if (err.message) {
+      } else if (isApiError(err) && err.message) {
         errorMessage = String(err.message);
       }
       
@@ -279,7 +295,7 @@ export const usePatients = () => {
       setError(null);
       await api.delete(`/patients/${id}`);
       toast.success('Patient deleted successfully');
-    } catch (err) {
+    } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to delete patient';
       setError(errorMessage);
       toast.error('Failed to delete patient');
@@ -294,19 +310,19 @@ export const usePatients = () => {
       setLoading(true);
       setError(null);
       
-      const response = await api.delete(`/patients/${id}/permanent`);
+      await api.delete(`/patients/${id}/permanent`);
       
       toast.success('Patient permanently deleted');
       return {
         success: true,
         message: 'Patient permanently deleted'
       };
-    } catch (err: any) {
+    } catch (err: unknown) {
       let errorMessage = 'Failed to permanently delete patient';
       
-      if (err.response?.data?.error) {
+      if (isApiError(err) && err.response?.data?.error) {
         errorMessage = String(err.response.data.error);
-      } else if (err.message) {
+      } else if (isApiError(err) && err.message) {
         errorMessage = String(err.message);
       }
       
@@ -336,19 +352,19 @@ export const usePatients = () => {
         message: String(decryptedResponse.message || 'Patient archived successfully'),
         patient: decryptedResponse.patient as Patient
       };
-    } catch (err: any) {
+    } catch (err: unknown) {
       let errorMessage = 'Failed to archive patient';
       
-      if (err.response?.data?.data) {
+      if (isApiError(err) && err.response?.data?.data) {
         try {
           const decryptedError = decrypt(err.response.data.data);
           errorMessage = String(decryptedError.error || errorMessage);
         } catch (decryptError) {
           console.error('Error decrypting error response:', decryptError);
         }
-      } else if (err.response?.data?.error) {
+      } else if (isApiError(err) && err.response?.data?.error) {
         errorMessage = String(err.response.data.error);
-      } else if (err.message) {
+      } else if (isApiError(err) && err.message) {
         errorMessage = String(err.message);
       }
       
@@ -378,19 +394,19 @@ export const usePatients = () => {
         message: String(decryptedResponse.message || 'Patient restored successfully'),
         patient: decryptedResponse.patient as Patient
       };
-    } catch (err: any) {
+    } catch (err: unknown) {
       let errorMessage = 'Failed to restore patient';
       
-      if (err.response?.data?.data) {
+      if (isApiError(err) && err.response?.data?.data) {
         try {
           const decryptedError = decrypt(err.response.data.data);
           errorMessage = String(decryptedError.error || errorMessage);
         } catch (decryptError) {
           console.error('Error decrypting error response:', decryptError);
         }
-      } else if (err.response?.data?.error) {
+      } else if (isApiError(err) && err.response?.data?.error) {
         errorMessage = String(err.response.data.error);
-      } else if (err.message) {
+      } else if (isApiError(err) && err.message) {
         errorMessage = String(err.message);
       }
       
@@ -420,19 +436,19 @@ export const usePatients = () => {
         message: String(decryptedResponse.message || 'Patients archived successfully'),
         updatedCount: decryptedResponse.updatedCount || patientIds.length
       };
-    } catch (err: any) {
+    } catch (err: unknown) {
       let errorMessage = 'Failed to archive patients';
       
-      if (err.response?.data?.data) {
+      if (isApiError(err) && err.response?.data?.data) {
         try {
           const decryptedError = decrypt(err.response.data.data);
           errorMessage = String(decryptedError.error || errorMessage);
         } catch (decryptError) {
           console.error('Error decrypting error response:', decryptError);
         }
-      } else if (err.response?.data?.error) {
+      } else if (isApiError(err) && err.response?.data?.error) {
         errorMessage = String(err.response.data.error);
-      } else if (err.message) {
+      } else if (isApiError(err) && err.message) {
         errorMessage = String(err.message);
       }
       
@@ -462,19 +478,19 @@ export const usePatients = () => {
         message: String(decryptedResponse.message || 'Patients restored successfully'),
         updatedCount: decryptedResponse.updatedCount || patientIds.length
       };
-    } catch (err: any) {
+    } catch (err: unknown) {
       let errorMessage = 'Failed to restore patients';
       
-      if (err.response?.data?.data) {
+      if (isApiError(err) && err.response?.data?.data) {
         try {
           const decryptedError = decrypt(err.response.data.data);
           errorMessage = String(decryptedError.error || errorMessage);
         } catch (decryptError) {
           console.error('Error decrypting error response:', decryptError);
         }
-      } else if (err.response?.data?.error) {
+      } else if (isApiError(err) && err.response?.data?.error) {
         errorMessage = String(err.response.data.error);
-      } else if (err.message) {
+      } else if (isApiError(err) && err.message) {
         errorMessage = String(err.message);
       }
       

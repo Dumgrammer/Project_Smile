@@ -1,6 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
 import axios from 'axios';
-import Cookies from 'js-cookie';
 import { encrypt, decrypt } from '@/lib/crypto';
 import { protectedApi } from '@/hooks/axiosConfig'; // Add this import
 import React from 'react'; // Added missing import for React.useEffect
@@ -15,7 +14,7 @@ export const useAppointments = () => {
 
   // Debug: Check token on hook initialization
   React.useEffect(() => {
-    const token = Cookies.get('accessToken');
+    // Token check removed - not needed
   }, []);
 
   const createAppointment = useCallback(async (appointmentData: {
@@ -99,8 +98,7 @@ export const useAppointments = () => {
       const params = new URLSearchParams();
       if (filters?.date) params.append('date', filters.date);
 
-      // Debug: Check token value
-      const token = Cookies.get('accessToken');
+      // Debug: Token check removed - not needed
 
       const response = await protectedApi.get(`/appointments/archived?${params.toString()}`);
       

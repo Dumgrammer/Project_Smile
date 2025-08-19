@@ -60,7 +60,7 @@ export function AppointmentDialogs({
               <Label>Patient</Label>
               <PatientSearch 
                 onSelect={(patientId) => {
-                    setNewAppointment((prev: any) => ({...prev, patientId}));
+                    setNewAppointment((prev) => ({...prev, patientId}));
                 }}
                 selectedPatientId={newAppointment.patientId}
               />

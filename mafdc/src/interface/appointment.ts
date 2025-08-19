@@ -27,7 +27,25 @@ export interface AppointmentDialogsProps {
     startTime: string;
     endTime: string;
   };
-  setNewAppointment: (appointment: any) => void;
+  setNewAppointment: (appointment: {
+    patientId: string;
+    title: string;
+    date: Date;
+    startTime: string;
+    endTime: string;
+  } | ((prev: {
+    patientId: string;
+    title: string;
+    date: Date;
+    startTime: string;
+    endTime: string;
+  }) => {
+    patientId: string;
+    title: string;
+    date: Date;
+    startTime: string;
+    endTime: string;
+  })) => void;
   handleCreateAppointment: () => void;
 
   // Edit Appointment Modal

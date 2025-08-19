@@ -43,7 +43,7 @@ export default function AppointmentsPage() {
   const createAppointment = useAppointmentsHook.createAppointment;
   const cancelAppointment = useAppointmentsHook.cancelAppointment;
   const completeAppointment = useAppointmentsHook.completeAppointment;
-  const createAppointmentNotes = useAppointmentsHook.createAppointmentNotes;
+
   const updateAppointment = useAppointmentsHook.updateAppointment;
 
   const [events, setEvents] = useState<Array<{
@@ -526,7 +526,7 @@ export default function AppointmentsPage() {
               {/* Upcoming appointments card - responsive sidebar */}
               <Card className="mb-4 shadow-sm rounded-lg lg:mb-0 lg:col-span-1">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-base lg:text-lg">Today's Schedule</CardTitle>
+                  <CardTitle className="text-base lg:text-lg">Today&apos;s Schedule</CardTitle>
                   <CardDescription className="text-xs lg:text-sm">Upcoming appointments</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3 max-h-[300px] lg:max-h-[calc(100vh-350px)] overflow-y-auto">

@@ -8,7 +8,7 @@ export interface Log {
   entityId: string;
   entityName?: string;
   description: string;
-  details: Record<string, any>;
+  details: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
   formattedCreatedAt?: string;

@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { usePatients } from '@/hooks/patients/patientHooks';
+import { useAuth } from '@/hooks/useAuth';
 import { AppSidebar } from "@/components/app-sidebar";
 import { SiteHeader } from "@/components/site-header";
 import {
@@ -15,6 +16,7 @@ import { IconArrowLeft, IconCircleCheckFilled, IconLoader } from '@tabler/icons-
 import { use } from 'react';
 import { usePatientAppointments } from '@/hooks/appointments/usePatientAppointments';
 import { format } from 'date-fns';
+import type { Patient } from '@/interface/patient';
 
 import {
   Select,
@@ -31,38 +33,6 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { useNotes } from '@/hooks/notes/notesHooks';
-
-interface Patient {
-  _id: string;
-  firstName: string;
-  middleName?: string;
-  lastName: string;
-  birthDate: string;
-  age: number;
-  gender: string;
-  contactNumber: string;
-  email?: string;
-  address?: {
-    street?: string;
-    city?: string;
-    province?: string;
-    postalCode?: string;
-  };
-  emergencyContact?: {
-    name?: string;
-    relationship?: string;
-    contactNumber?: string;
-  };
-  allergies?: string;
-  lastVisit?: string;
-  isActive: boolean;
-  cases: Array<{
-    title: string;
-    description: string;
-    treatmentPlan?: string;
-    status: "Active" | "Completed" | "Cancelled";
-  }>;
-}
 
 interface Appointment {
   _id: string;
@@ -96,6 +66,7 @@ interface Note {
 interface ApiError {
   message: string;
   response?: {
+    status?: number;
     data?: {
       message?: string;
     };
@@ -136,6 +107,7 @@ export default function PatientDetails({
   params: Promise<{ id: string }>;
 }) {
   const router = useRouter();
+  const { isLoading: authLoading } = useAuth(true);
   const { getPatientById } = usePatients();
   const { loading: appointmentsLoading, error: appointmentsError, getPatientAppointments } = usePatientAppointments();
   const { loading: notesLoading, getPatientNotes } = useNotes();
@@ -145,9 +117,11 @@ export default function PatientDetails({
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [notes, setNotes] = useState<Note[]>([]);
   const [sortBy, setSortBy] = useState('date');
-  const [notesSortBy] = useState('newest');
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [selectedMonthYear, setSelectedMonthYear] = useState('All');
+
+  // Unwrap the params promise
+  const resolvedParams = use(params);
 
   // Group notes by month and year
   const groupedNotes = useMemo(() => {
@@ -185,13 +159,11 @@ export default function PatientDetails({
     };
   }, [groupedNotes, selectedMonthYear]);
 
-  // Unwrap the params promise
-  const resolvedParams = use(params);
-
+  // Combined useEffect for fetching all data
   useEffect(() => {
     let isMounted = true;
 
-    const fetchPatient = async () => {
+    const fetchAllData = async () => {
       if (!resolvedParams.id) {
         setError('Invalid patient ID');
         setIsLoading(false);
@@ -200,13 +172,32 @@ export default function PatientDetails({
 
       try {
         setIsLoading(true);
-        const data = await getPatientById(resolvedParams.id);
-        if (isMounted) {
-          setPatient(data);
-          setError(null);
-        }
+        
+        // Fetch patient data
+        const patientData = await getPatientById(resolvedParams.id);
+        if (!isMounted) return;
+        
+        // Ensure cases is properly initialized if undefined
+        const patientWithCases: Patient = {
+          ...patientData,
+          cases: patientData.cases || []
+        };
+        setPatient(patientWithCases);
+        setError(null);
+
+        // Fetch appointments and notes in parallel
+        const [appointmentsData, notesData] = await Promise.all([
+          getPatientAppointments(resolvedParams.id, sortBy).catch(() => []),
+          getPatientNotes(resolvedParams.id).catch(() => [])
+        ]);
+
+        if (!isMounted) return;
+        
+        setAppointments(appointmentsData);
+        setNotes(notesData);
+        
       } catch (err) {
-        console.error('Error fetching patient:', err);
+        console.error('Error fetching patient data:', err);
         if (isMounted) {
           setError('Failed to load patient data');
         }
@@ -217,68 +208,15 @@ export default function PatientDetails({
       }
     };
 
-    fetchPatient();
+    fetchAllData();
 
     return () => {
       isMounted = false;
     };
-  }, [resolvedParams.id, getPatientById]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resolvedParams.id, sortBy]);
 
-  const fetchPatientAppointments = useCallback(async () => {
-    try {
-      const response = await getPatientAppointments(resolvedParams.id);
-      // Sort appointments based on the selected option
-      const sortedAppointments = [...response].sort((a, b) => {
-        switch (sortBy) {
-          case 'dateAsc':
-            return new Date(a.date).getTime() - new Date(b.date).getTime();
-          case 'status':
-            return a.status.localeCompare(b.status);
-          case 'date':
-          default:
-            return new Date(b.date).getTime() - new Date(a.date).getTime();
-        }
-      });
-      setAppointments(sortedAppointments);
-    } catch (err: unknown) {
-      const apiError = err as ApiError;
-      console.error('Error fetching appointments:', apiError);
-    }
-  }, [getPatientAppointments, resolvedParams.id, sortBy]);
-
-  const fetchPatientNotes = useCallback(async () => {
-    try {
-      const response = await getPatientNotes(resolvedParams.id);
-      // Sort notes based on the selected option
-      const sortedNotes = [...response].sort((a, b) => {
-        switch (notesSortBy) {
-          case 'oldest':
-            return new Date(a.appointment.date).getTime() - new Date(b.appointment.date).getTime();
-          case 'newest':
-          default:
-            return new Date(b.appointment.date).getTime() - new Date(a.appointment.date).getTime();
-        }
-      });
-      setNotes(sortedNotes);
-    } catch (err: unknown) {
-      const apiError = err as ApiError;
-      console.error('Error fetching notes:', apiError);
-    }
-  }, [getPatientNotes, resolvedParams.id, notesSortBy]);
-
-  useEffect(() => {
-    if (!isLoading) {
-      fetchPatientAppointments();
-    }
-  }, [isLoading, fetchPatientAppointments]);
-
-  useEffect(() => {
-    if (!isLoading) {
-      fetchPatientNotes();
-    }
-  }, [isLoading, fetchPatientNotes]);
-
-  if (isLoading) {
+  if (authLoading || isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-violet-600"></div>

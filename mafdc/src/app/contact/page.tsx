@@ -81,7 +81,7 @@ export default function Contact() {
               Contact <span className="text-violet-600">MA Florencio</span> Dental Clinic
             </h1>
             <p className="max-w-[700px] mx-auto text-gray-600 text-lg md:text-xl">
-              Get in touch with us for appointments, inquiries, or emergencies. We're here to help you achieve your best smile.
+              Get in touch with us for appointments, inquiries, or emergencies. We&apos;re here to help you achieve your best smile.
             </p>
           </div>
         </div>
@@ -271,7 +271,7 @@ export default function Contact() {
                 Ready to schedule your appointment?
               </h2>
               <p className="max-w-[500px] text-violet-200">
-                Book your visit online for convenient scheduling. We're here to provide you with exceptional dental care.
+                Book your visit online for convenient scheduling. We&apos;re here to provide you with exceptional dental care.
               </p>
             </div>
             <div className="flex justify-center md:justify-end">

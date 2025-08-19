@@ -1,5 +1,11 @@
 import { useState } from 'react';
-import axios from 'axios';
+import { protectedApi } from '../axiosConfig';
+import { decrypt } from '@/lib/crypto';
+
+
+interface ApiResponse {
+  data: string; // encrypted data
+}
 
 interface ApiError {
   message: string;
@@ -18,8 +24,13 @@ export const usePatientAppointments = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await axios.get(`http://localhost:8080/api/v1/appointments/patient/${patientId}?sortBy=${sortBy}`);
-      return response.data;
+      const response = await protectedApi.get<ApiResponse>(`/appointments/patient/${patientId}?sortBy=${sortBy}`);
+      
+      // Decrypt the response data
+      const decryptedData = decrypt(response.data.data);
+      const appointments = Array.isArray(decryptedData) ? decryptedData : [];
+      
+      return appointments;
     } catch (err: unknown) {
       const apiError = err as ApiError;
       const errorMessage = apiError.response?.data?.message || apiError.message || 'Failed to fetch patient appointments';

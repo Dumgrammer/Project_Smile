@@ -6,7 +6,6 @@ import Cookies from "js-cookie"
 import {
   IconChartBar,
   IconDashboard,
-  IconHelp,
   IconInnerShadowTop,
   IconListDetails,
   IconLogout,

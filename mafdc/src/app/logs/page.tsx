@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -34,8 +34,7 @@ export default function LogsPage() {
   const { isLoading: authLoading } = useAuth(true); // Require authentication
   const { 
     getLogs, 
-    getLogStats,
-    loading 
+    getLogStats
   } = useLogs();
   
   const [logs, setLogs] = useState<Log[]>([]);
@@ -101,7 +100,7 @@ export default function LogsPage() {
       .trim();
   };
 
-  const formatDetailValue = (value: any): string => {
+  const formatDetailValue = (value: unknown): string => {
     if (value === null || value === undefined) {
       return 'Not specified';
     }
@@ -117,7 +116,7 @@ export default function LogsPage() {
     return String(value);
   };
 
-  const renderLogDetails = (details: Record<string, any>) => {
+  const renderLogDetails = (details: Record<string, unknown>) => {
     const entries = Object.entries(details);
     
     if (entries.length === 0) {
@@ -144,15 +143,7 @@ export default function LogsPage() {
     );
   };
 
-  // Fetch logs on component mount
-  useEffect(() => {
-    if (!authLoading) {
-      fetchLogs();
-      fetchStats();
-    }
-  }, [authLoading, filters]);
-
-  const fetchLogs = async () => {
+  const fetchLogs = useCallback(async () => {
     setRefreshing(true);
     try {
       const filterParams = {
@@ -180,9 +171,9 @@ export default function LogsPage() {
     } finally {
       setRefreshing(false);
     }
-  };
+  }, [filters, getLogs]);
 
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     try {
       const result = await getLogStats();
       if (result.success && result.data) {
@@ -191,7 +182,15 @@ export default function LogsPage() {
     } catch (error) {
       console.error('Error fetching stats:', error);
     }
-  };
+  }, [getLogStats]);
+
+  // Fetch logs on component mount
+  useEffect(() => {
+    if (!authLoading) {
+      fetchLogs();
+      fetchStats();
+    }
+  }, [authLoading, filters, fetchLogs, fetchStats]);
 
   const handleViewLog = (log: Log) => {
     setSelectedLog(log);
@@ -274,7 +273,7 @@ export default function LogsPage() {
                   </Card>
                   <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">Today's Activity</CardTitle>
+                      <CardTitle className="text-sm font-medium">Today&apos;s Activity</CardTitle>
                       <Activity className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>

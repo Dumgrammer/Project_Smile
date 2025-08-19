@@ -72,7 +72,7 @@ export default function About() {
               <div className="h-1 bg-violet-600 w-full"></div>
               <CardHeader className="pb-2">
                 <CardTitle className="text-xl text-gray-900">Our Vision</CardTitle>
-                <CardDescription>Where we're headed</CardDescription>
+                <CardDescription>Where we&apos;re headed</CardDescription>
               </CardHeader>
               <CardContent>
                 <p className="text-gray-600">
@@ -154,10 +154,10 @@ export default function About() {
                   Founded in 2015, MA Florencio Dental Clinic began with a simple mission: to provide exceptional dental care in a warm, welcoming environment. What started as a small practice has grown into a trusted dental care provider serving our community.
                 </p>
                 <p>
-                  Over the years, we've invested in the latest dental technology and continued education to ensure our patients receive the best possible care. Our team of experienced professionals is dedicated to staying current with the latest advancements in dental medicine.
+                  Over the years, we&apos;ve invested in the latest dental technology and continued education to ensure our patients receive the best possible care. Our team of experienced professionals is dedicated to staying current with the latest advancements in dental medicine.
                 </p>
                 <p>
-                  Today, we're proud to serve thousands of patients and families, helping them achieve healthy, beautiful smiles through comprehensive dental care and personalized treatment plans.
+                  Today, we&apos;re proud to serve thousands of patients and families, helping them achieve healthy, beautiful smiles through comprehensive dental care and personalized treatment plans.
                 </p>
               </div>
             </div>

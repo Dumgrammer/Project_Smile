@@ -5,6 +5,22 @@ import { encrypt, decrypt } from '@/lib/crypto';
 import { Inquiry, InquiryFormData, InquiryResponse, InquiryStats } from '@/interface/Inquiry';
 import { publicApi, protectedApi } from '@/hooks/axiosConfig';
 
+// Type guard for error objects
+interface ApiError {
+  response?: {
+    status?: number;
+    data?: {
+      data?: string;
+      error?: string;
+    };
+  };
+  message?: string;
+}
+
+function isApiError(err: unknown): err is ApiError {
+  return err !== null && typeof err === 'object' && 'response' in err;
+}
+
 
 export const useInquiries = () => {
   const [loading, setLoading] = useState(false);
@@ -32,19 +48,19 @@ export const useInquiries = () => {
         inquiryId: String(decryptedResponse.inquiryId || ''),
         emailSent: Boolean(decryptedResponse.emailSent)
       };
-    } catch (err: any) {
+    } catch (err: unknown) {
       let errorMessage = 'Failed to submit inquiry. Please try again.';
       
-      if (err.response?.data?.data) {
+      if (isApiError(err) && err.response?.data?.data) {
         try {
           const decryptedError = decrypt(err.response.data.data);
           errorMessage = String(decryptedError.error || errorMessage);
         } catch (decryptError) {
           console.error('Error decrypting error response:', decryptError);
         }
-      } else if (err.response?.data?.error) {
+      } else if (isApiError(err) && err.response?.data?.error) {
         errorMessage = String(err.response.data.error);
-      } else if (err.message) {
+      } else if (isApiError(err) && err.message) {
         errorMessage = String(err.message);
       }
       
@@ -84,20 +100,20 @@ export const useInquiries = () => {
         success: true,
         data: decryptedResponse as InquiryResponse
       };
-    } catch (err: any) {
-      console.error('Error fetching inquiries:', err.response?.status, err.response?.data);
+    } catch (err: unknown) {
+      console.error('Error fetching inquiries:', isApiError(err) ? err.response?.status : 'unknown', isApiError(err) ? err.response?.data : 'unknown');
       let errorMessage = 'Failed to fetch inquiries.';
       
-      if (err.response?.status === 401) {
+      if (isApiError(err) && err.response?.status === 401) {
         errorMessage = 'Unauthorized. Please log in again.';
-      } else if (err.response?.data?.data) {
+      } else if (isApiError(err) && err.response?.data?.data) {
         try {
           const decryptedError = decrypt(err.response.data.data);
           errorMessage = String(decryptedError.error || errorMessage);
         } catch (decryptError) {
           console.error('Error decrypting error response:', decryptError);
         }
-      } else if (err.response?.data?.error) {
+      } else if (isApiError(err) && err.response?.data?.error) {
         errorMessage = String(err.response.data.error);
       }
       
@@ -126,10 +142,10 @@ export const useInquiries = () => {
         success: true,
         inquiry: decryptedResponse.inquiry as Inquiry
       };
-    } catch (err: any) {
+    } catch (err: unknown) {
       let errorMessage = 'Failed to fetch inquiry.';
       
-      if (err.response?.data?.data) {
+      if (isApiError(err) && err.response?.data?.data) {
         try {
           const decryptedError = decrypt(err.response.data.data);
           errorMessage = decryptedError.error || errorMessage;
@@ -169,10 +185,10 @@ export const useInquiries = () => {
         message: decryptedResponse.message,
         inquiry: decryptedResponse.inquiry as Inquiry
       };
-    } catch (err: any) {
+    } catch (err: unknown) {
       let errorMessage = 'Failed to update inquiry status.';
       
-      if (err.response?.data?.data) {
+      if (isApiError(err) && err.response?.data?.data) {
         try {
           const decryptedError = decrypt(err.response.data.data);
           errorMessage = decryptedError.error || errorMessage;
@@ -212,17 +228,17 @@ export const useInquiries = () => {
         message: decryptedResponse.message,
         inquiry: decryptedResponse.inquiry as Inquiry
       };
-    } catch (err: any) {
+    } catch (err: unknown) {
       let errorMessage = 'Failed to archive inquiry.';
       
-      if (err.response?.data?.data) {
+      if (isApiError(err) && err.response?.data?.data) {
         try {
           const decryptedError = decrypt(err.response.data.data);
           errorMessage = String(decryptedError.error || errorMessage);
         } catch (decryptError) {
           console.error('Error decrypting error response:', decryptError);
         }
-      } else if (err.response?.data?.error) {
+      } else if (isApiError(err) && err.response?.data?.error) {
         errorMessage = String(err.response.data.error);
       }
       
@@ -252,10 +268,10 @@ export const useInquiries = () => {
         message: decryptedResponse.message,
         inquiry: decryptedResponse.inquiry as Inquiry
       };
-    } catch (err: any) {
+    } catch (err: unknown) {
       let errorMessage = 'Failed to unarchive inquiry.';
       
-      if (err.response?.data?.data) {
+      if (isApiError(err) && err.response?.data?.data) {
         try {
           const decryptedError = decrypt(err.response.data.data);
           errorMessage = decryptedError.error || errorMessage;
@@ -289,10 +305,10 @@ export const useInquiries = () => {
         success: true,
         message: decryptedResponse.message
       };
-    } catch (err: any) {
+    } catch (err: unknown) {
       let errorMessage = 'Failed to delete inquiry.';
       
-      if (err.response?.data?.data) {
+      if (isApiError(err) && err.response?.data?.data) {
         try {
           const decryptedError = decrypt(err.response.data.data);
           errorMessage = decryptedError.error || errorMessage;
@@ -326,10 +342,10 @@ export const useInquiries = () => {
         success: true,
         stats: decryptedResponse.stats as InquiryStats
       };
-    } catch (err: any) {
+    } catch (err: unknown) {
       let errorMessage = 'Failed to fetch inquiry statistics.';
       
-      if (err.response?.data?.data) {
+      if (isApiError(err) && err.response?.data?.data) {
         try {
           const decryptedError = decrypt(err.response.data.data);
           errorMessage = decryptedError.error || errorMessage;
@@ -364,10 +380,10 @@ export const useInquiries = () => {
         message: decryptedResponse.message,
         inquiry: decryptedResponse.inquiry as Inquiry
       };
-    } catch (err: any) {
+    } catch (err: unknown) {
       let errorMessage = 'Failed to restore inquiry.';
       
-      if (err.response?.data?.data) {
+      if (isApiError(err) && err.response?.data?.data) {
         try {
           const decryptedError = decrypt(err.response.data.data);
           errorMessage = decryptedError.error || errorMessage;

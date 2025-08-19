@@ -22,8 +22,6 @@ export interface SectionCardsProps {
 export function SectionCards({
   totalVisitors,
   activePatients,
-  totalRevenue,
-  growthRate,
   loading,
   error,
 }: SectionCardsProps) {

@@ -32,7 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { IconPlus, IconPencil } from "@tabler/icons-react"
+import { IconPlus } from "@tabler/icons-react"
 
 type CaseStatus = "Active" | "Completed" | "Cancelled";
 

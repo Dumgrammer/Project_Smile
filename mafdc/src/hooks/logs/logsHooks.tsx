@@ -2,10 +2,8 @@
 
 import { useState } from 'react';
 import { encrypt, decrypt } from '@/lib/crypto';
-import { 
-  Log, 
-  LogResponse, 
-  LogStats, 
+import {
+  LogResponse,
   LogStatsResponse, 
   LogFilters, 
   CleanupResponse,
@@ -13,6 +11,22 @@ import {
   EntityType
 } from '@/interface/logs';
 import { protectedApi } from '@/hooks/axiosConfig';
+
+// Type guard for error objects
+interface ApiError {
+  response?: {
+    status?: number;
+    data?: {
+      data?: string;
+      error?: string;
+    };
+  };
+  message?: string;
+}
+
+function isApiError(err: unknown): err is ApiError {
+  return err !== null && typeof err === 'object' && 'response' in err;
+}
 
 export const useLogs = () => {
   const [loading, setLoading] = useState(false);
@@ -42,20 +56,20 @@ export const useLogs = () => {
         success: true,
         data: decryptedResponse as LogResponse
       };
-    } catch (err: any) {
-      console.error('Error fetching logs:', err.response?.status, err.response?.data);
+    } catch (err: unknown) {
+      console.error('Error fetching logs:', isApiError(err) ? err.response?.status : 'unknown', isApiError(err) ? err.response?.data : 'unknown');
       let errorMessage = 'Failed to fetch logs.';
       
-      if (err.response?.status === 401) {
+      if (isApiError(err) && err.response?.status === 401) {
         errorMessage = 'Unauthorized. Please log in again.';
-      } else if (err.response?.data?.data) {
+      } else if (isApiError(err) && err.response?.data?.data) {
         try {
           const decryptedError = decrypt(err.response.data.data);
           errorMessage = String(decryptedError.error || errorMessage);
         } catch (decryptError) {
           console.error('Error decrypting error response:', decryptError);
         }
-      } else if (err.response?.data?.error) {
+      } else if (isApiError(err) && err.response?.data?.error) {
         errorMessage = String(err.response.data.error);
       }
       
@@ -87,17 +101,17 @@ export const useLogs = () => {
         success: true,
         data: decryptedResponse as LogStatsResponse
       };
-    } catch (err: any) {
+    } catch (err: unknown) {
       let errorMessage = 'Failed to fetch log statistics.';
       
-      if (err.response?.data?.data) {
+      if (isApiError(err) && err.response?.data?.data) {
         try {
           const decryptedError = decrypt(err.response.data.data);
           errorMessage = String(decryptedError.error || errorMessage);
         } catch (decryptError) {
           console.error('Error decrypting error response:', decryptError);
         }
-      } else if (err.response?.data?.error) {
+      } else if (isApiError(err) && err.response?.data?.error) {
         errorMessage = String(err.response.data.error);
       }
       
@@ -135,17 +149,17 @@ export const useLogs = () => {
         success: true,
         data: decryptedResponse as LogResponse
       };
-    } catch (err: any) {
+    } catch (err: unknown) {
       let errorMessage = 'Failed to fetch admin logs.';
       
-      if (err.response?.data?.data) {
+      if (isApiError(err) && err.response?.data?.data) {
         try {
           const decryptedError = decrypt(err.response.data.data);
           errorMessage = String(decryptedError.error || errorMessage);
         } catch (decryptError) {
           console.error('Error decrypting error response:', decryptError);
         }
-      } else if (err.response?.data?.error) {
+      } else if (isApiError(err) && err.response?.data?.error) {
         errorMessage = String(err.response.data.error);
       }
       
@@ -183,17 +197,17 @@ export const useLogs = () => {
         success: true,
         data: decryptedResponse as LogResponse
       };
-    } catch (err: any) {
+    } catch (err: unknown) {
       let errorMessage = 'Failed to fetch entity logs.';
       
-      if (err.response?.data?.data) {
+      if (isApiError(err) && err.response?.data?.data) {
         try {
           const decryptedError = decrypt(err.response.data.data);
           errorMessage = String(decryptedError.error || errorMessage);
         } catch (decryptError) {
           console.error('Error decrypting error response:', decryptError);
         }
-      } else if (err.response?.data?.error) {
+      } else if (isApiError(err) && err.response?.data?.error) {
         errorMessage = String(err.response.data.error);
       }
       
@@ -214,7 +228,7 @@ export const useLogs = () => {
     entityId: string;
     entityName?: string;
     description: string;
-    details?: Record<string, any>;
+    details?: Record<string, unknown>;
   }) => {
     setLoading(true);
     setError(null);
@@ -235,17 +249,17 @@ export const useLogs = () => {
         message: String(decryptedResponse.message || 'Log created successfully'),
         logId: String(decryptedResponse.logId || '')
       };
-    } catch (err: any) {
+    } catch (err: unknown) {
       let errorMessage = 'Failed to create log.';
       
-      if (err.response?.data?.data) {
+      if (isApiError(err) && err.response?.data?.data) {
         try {
           const decryptedError = decrypt(err.response.data.data);
           errorMessage = String(decryptedError.error || errorMessage);
         } catch (decryptError) {
           console.error('Error decrypting error response:', decryptError);
         }
-      } else if (err.response?.data?.error) {
+      } else if (isApiError(err) && err.response?.data?.error) {
         errorMessage = String(err.response.data.error);
       }
       
@@ -274,17 +288,17 @@ export const useLogs = () => {
         success: true,
         data: decryptedResponse as CleanupResponse
       };
-    } catch (err: any) {
+    } catch (err: unknown) {
       let errorMessage = 'Failed to cleanup old logs.';
       
-      if (err.response?.data?.data) {
+      if (isApiError(err) && err.response?.data?.data) {
         try {
           const decryptedError = decrypt(err.response.data.data);
           errorMessage = String(decryptedError.error || errorMessage);
         } catch (decryptError) {
           console.error('Error decrypting error response:', decryptError);
         }
-      } else if (err.response?.data?.error) {
+      } else if (isApiError(err) && err.response?.data?.error) {
         errorMessage = String(err.response.data.error);
       }
       

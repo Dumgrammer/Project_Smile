@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,8 +28,7 @@ export default function InquiriesPage() {
   const { 
     getInquiries, 
     updateInquiryStatus, 
-    archiveInquiry, 
-    unarchiveInquiry, 
+    archiveInquiry,
     restoreInquiry,
     deleteInquiry, 
     loading 
@@ -69,21 +68,7 @@ export default function InquiriesPage() {
     });
   };
 
-  // Fetch inquiries on component mount (only after auth is complete)
-  useEffect(() => {
-    if (!authLoading) {
-      fetchInquiries();
-    }
-  }, [authLoading]);
-
-  // Fetch inquiries when pagination or tab changes
-  useEffect(() => {
-    if (!authLoading) {
-      fetchInquiries();
-    }
-  }, [pagination.page, pagination.limit, currentTab]);
-
-  const fetchInquiries = async (page = pagination.page, limit = pagination.limit) => {
+  const fetchInquiries = useCallback(async (page = pagination.page, limit = pagination.limit) => {
     setRefreshing(true);
     try {
       const archived = currentTab === 'archived';
@@ -113,7 +98,21 @@ export default function InquiriesPage() {
     } finally {
       setRefreshing(false);
     }
-  };
+  }, [pagination.page, pagination.limit, currentTab, getInquiries]);
+
+  // Fetch inquiries on component mount (only after auth is complete)
+  useEffect(() => {
+    if (!authLoading) {
+      fetchInquiries();
+    }
+  }, [authLoading, fetchInquiries]);
+
+  // Fetch inquiries when pagination or tab changes
+  useEffect(() => {
+    if (!authLoading) {
+      fetchInquiries();
+    }
+  }, [pagination.page, pagination.limit, currentTab, authLoading, fetchInquiries]);
 
   const handleReadInquiry = async (inquiry: Inquiry) => {
     setSelectedInquiry(inquiry);
@@ -306,7 +305,7 @@ export default function InquiriesPage() {
                 </div>
                 <Button 
                   variant="outline"
-                  onClick={fetchInquiries}
+                  onClick={() => fetchInquiries()}
                   disabled={refreshing}
                   className="flex items-center gap-2"
                 >

@@ -14,7 +14,7 @@ import { Calendar, Clock, User, Phone, Mail, MapPin, CheckCircle2, ArrowLeft, Ch
 import { useAppointments } from "@/hooks/appointments/appointmentHooks";
 
 // Import Patient interface from patientHooks to ensure consistency
-import type { Patient } from "@/hooks/patients/patientHooks";
+import type { Patient } from "@/interface/patient";
 
 interface AppointmentSlot {
   id: string;
@@ -452,7 +452,7 @@ export default function OnlineAppointmentPage() {
                   <span><strong>Duration:</strong> {selectedServiceData?.duration} minutes</span>
                 </div>
                 <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-yellow-800 text-xs">
-                  <strong>Note:</strong> This will be submitted as a request with "Pending" status. 
+                  <strong>Note:</strong> This will be submitted as a request with &quot;Pending&quot; status. 
                   You will receive confirmation within 24 hours.
                 </div>
               </div>
