@@ -146,13 +146,13 @@ export default function LogsPage() {
   const fetchLogs = useCallback(async () => {
     setRefreshing(true);
     try {
-      const filterParams = {
+      const params = {
         ...filters,
         action: (filters.action === 'all' || filters.action === '') ? undefined : filters.action as LogAction,
         entityType: (filters.entityType === 'all' || filters.entityType === '') ? undefined : filters.entityType as EntityType
       };
 
-      const result = await getLogs(filterParams);
+      const result = await getLogs(params);
       if (result.success && result.data) {
         const mappedLogs = result.data.logs.map(log => ({
           ...log,
@@ -171,7 +171,7 @@ export default function LogsPage() {
     } finally {
       setRefreshing(false);
     }
-  }, [filters, getLogs]);
+  }, [getLogs]);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -184,13 +184,20 @@ export default function LogsPage() {
     }
   }, [getLogStats]);
 
-  // Fetch logs on component mount
+  // Fetch logs on component mount only
   useEffect(() => {
     if (!authLoading) {
       fetchLogs();
       fetchStats();
     }
-  }, [authLoading, filters, fetchLogs, fetchStats]);
+  }, [authLoading]);
+
+  // Fetch logs when filters change
+  useEffect(() => {
+    if (!authLoading) {
+      fetchLogs();
+    }
+  }, [filters]);
 
   const handleViewLog = (log: Log) => {
     setSelectedLog(log);

@@ -68,11 +68,15 @@ export default function InquiriesPage() {
     });
   };
 
-  const fetchInquiries = useCallback(async (page = pagination.page, limit = pagination.limit) => {
+  const fetchInquiries = useCallback(async (page?: number, limit?: number, tab?: string) => {
     setRefreshing(true);
     try {
-      const archived = currentTab === 'archived';
-      const result = await getInquiries(page, limit, undefined, archived);
+      const currentPage = page ?? pagination.page;
+      const currentLimit = limit ?? pagination.limit;
+      const currentTabValue = tab ?? currentTab;
+      
+      const archived = currentTabValue === 'archived';
+      const result = await getInquiries(currentPage, currentLimit, undefined, archived);
       
       if (result.success && result.data) {
         // Map the backend response to our frontend format
@@ -84,8 +88,8 @@ export default function InquiriesPage() {
         
         // Update pagination info
         setPagination({
-          page: result.data.currentPage || page,
-          limit: limit,
+          page: result.data.currentPage || currentPage,
+          limit: currentLimit,
           totalPages: result.data.totalPages || 1,
           total: result.data.total || 0
         });
@@ -98,21 +102,21 @@ export default function InquiriesPage() {
     } finally {
       setRefreshing(false);
     }
-  }, [pagination.page, pagination.limit, currentTab, getInquiries]);
+  }, [getInquiries]);
 
-  // Fetch inquiries on component mount (only after auth is complete)
+  // Fetch inquiries on component mount only
   useEffect(() => {
     if (!authLoading) {
       fetchInquiries();
     }
-  }, [authLoading, fetchInquiries]);
+  }, [authLoading]);
 
   // Fetch inquiries when pagination or tab changes
   useEffect(() => {
     if (!authLoading) {
       fetchInquiries();
     }
-  }, [pagination.page, pagination.limit, currentTab, authLoading, fetchInquiries]);
+  }, [pagination.page, pagination.limit, currentTab]);
 
   const handleReadInquiry = async (inquiry: Inquiry) => {
     setSelectedInquiry(inquiry);
