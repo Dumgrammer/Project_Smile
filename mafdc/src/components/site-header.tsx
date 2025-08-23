@@ -1,5 +1,6 @@
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
+import { NotificationsDropdown } from "@/components/notifications"
 
 export function SiteHeader() {
   return (
@@ -10,6 +11,8 @@ export function SiteHeader() {
           orientation="vertical"
           className="mx-2 data-[orientation=vertical]:h-4"
         />
+        <div className="flex-1" />
+        <NotificationsDropdown />
       </div>
     </header>
   )

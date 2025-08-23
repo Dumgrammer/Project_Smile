@@ -352,6 +352,42 @@ export const useAppointments = () => {
     }
   }, []);
 
+  const getMissedAppointments = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await protectedApi.get('/appointments/missed');
+      
+      // Decrypt the response
+      const decryptedData = decrypt(response.data.data);
+      return decryptedData;
+    } catch (err: unknown) {
+      const apiError = err as ApiError;
+      setError(apiError.response?.data?.message || apiError.message || 'Failed to fetch missed appointments');
+      throw apiError;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const updateMissedAppointments = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await protectedApi.put('/appointments/missed/update');
+      
+      // Decrypt the response
+      const decryptedData = decrypt(response.data.data);
+      return decryptedData;
+    } catch (err: unknown) {
+      const apiError = err as ApiError;
+      setError(apiError.response?.data?.message || apiError.message || 'Failed to update missed appointments');
+      throw apiError;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   return useMemo(() => ({
     loading,
     error,
@@ -367,6 +403,8 @@ export const useAppointments = () => {
     getAppointmentNotes,
     getAvailableSlots,
     rescheduleAppointment,
+    getMissedAppointments,
+    updateMissedAppointments,
   }), [
     loading,
     error,
@@ -382,5 +420,7 @@ export const useAppointments = () => {
     getAppointmentNotes,
     getAvailableSlots,
     rescheduleAppointment,
+    getMissedAppointments,
+    updateMissedAppointments,
   ]);
 };
