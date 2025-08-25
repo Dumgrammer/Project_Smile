@@ -120,3 +120,132 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* React Big Calendar hover effects */
+.rbc-time-view .rbc-timeslot-group:hover {
+  background-color: rgba(99, 102, 241, 0.08) !important;
+}
+
+.rbc-time-view .rbc-day-slot .rbc-time-slot {
+  cursor: crosshair;
+  transition: background-color 120ms ease, box-shadow 120ms ease;
+}
+
+.rbc-time-view .rbc-day-slot .rbc-time-slot:hover {
+  background-color: rgba(99, 102, 241, 0.12) !important;
+  box-shadow: inset 0 0 0 1px rgba(99, 102, 241, 0.25) !important;
+}
+
+.rbc-time-view .rbc-day-slot .rbc-time-slot:active {
+  background-color: rgba(99, 102, 241, 0.15) !important;
+}
+
+/* Month view hover effects */
+.rbc-month-view .rbc-day-bg {
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+
+.rbc-month-view .rbc-day-bg:hover {
+  background-color: rgba(99, 102, 241, 0.08) !important;
+}
+
+.rbc-month-view .rbc-day-bg:active {
+  background-color: rgba(99, 102, 241, 0.12) !important;
+}
+
+/* Today highlight in month view */
+.rbc-month-view .rbc-today {
+  background-color: rgba(99, 102, 241, 0.06) !important;
+}
+
+.rbc-month-view .rbc-today:hover {
+  background-color: rgba(99, 102, 241, 0.12) !important;
+}
+
+/* Dark mode: calendar backgrounds and hover */
+.dark .rbc-time-view .rbc-timeslot-group:hover {
+  background-color: rgba(99, 102, 241, 0.12) !important;
+}
+
+.dark .rbc-time-view .rbc-day-slot .rbc-time-slot:hover {
+  background-color: rgba(99, 102, 241, 0.16) !important;
+  box-shadow: inset 0 0 0 1px rgba(139, 92, 246, 0.35) !important;
+}
+
+.dark .rbc-month-view .rbc-day-bg:hover {
+  background-color: rgba(99, 102, 241, 0.12) !important;
+}
+
+.dark .rbc-month-view .rbc-today {
+  background-color: rgba(99, 102, 241, 0.10) !important;
+}
+
+/* Dark mode: today column in week/day views */
+.dark .rbc-time-view .rbc-today {
+  background-color: rgba(99, 102, 241, 0.10) !important;
+}
+
+/* Increase specificity for time-slot hover in all modes */
+.rbc-time-view .rbc-time-content .rbc-day-slot .rbc-time-slot:hover {
+  background-color: rgba(99, 102, 241, 0.12) !important;
+  box-shadow: inset 0 0 0 1px rgba(99, 102, 241, 0.25) !important;
+}
+
+/* React Big Calendar DARK MODE core overrides */
+.dark .rbc-calendar,
+.dark .rbc-time-view,
+.dark .rbc-time-content,
+.dark .rbc-agenda-view,
+.dark .rbc-month-view {
+  background-color: #0b1020 !important;
+  color: #e5e7eb !important;
+}
+
+.dark .rbc-time-gutter,
+.dark .rbc-time-header,
+.dark .rbc-header,
+.dark .rbc-row,
+.dark .rbc-timeslot-group,
+.dark .rbc-day-slot,
+.dark .rbc-time-slot,
+.dark .rbc-time-content > * + * {
+  border-color: rgba(148, 163, 184, 0.25) !important; /* slate-400/25 */
+}
+
+.dark .rbc-header {
+  background-color: rgba(148, 163, 184, 0.08) !important;
+  color: #e2e8f0 !important;
+}
+
+/* Today highlight (week/day) */
+.dark .rbc-time-view .rbc-today {
+  background-color: rgba(99, 102, 241, 0.12) !important;
+}
+
+/* Month view: today cell */
+.dark .rbc-month-view .rbc-today {
+  background-color: rgba(99, 102, 241, 0.12) !important;
+}
+
+/* Month view: day hover */
+.dark .rbc-month-view .rbc-day-bg:hover {
+  background-color: rgba(99, 102, 241, 0.14) !important;
+}
+
+/* Time slots: hover and selection */
+.dark .rbc-time-view .rbc-day-slot .rbc-time-slot:hover {
+  background-color: rgba(99, 102, 241, 0.18) !important;
+  box-shadow: inset 0 0 0 1px rgba(139, 92, 246, 0.45) !important;
+}
+
+.dark .rbc-slot-selection {
+  background-color: rgba(99, 102, 241, 0.20) !important;
+  border: 1px solid rgba(139, 92, 246, 0.45) !important;
+}
+
+/* Event colors remain readable in dark */
+.dark .rbc-event,
+.dark .rbc-event-content {
+  color: #111827 !important; /* ensure contrast when events are light */
+}

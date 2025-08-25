@@ -21,6 +21,11 @@
 /* Add some spacing between slots */
 .rbc-time-slot {
   border-top: 1px solid #f0f0f0;
+  transition: background-color 120ms ease, box-shadow 120ms ease;
+}
+
+.rbc-time-slot:hover {
+  background-color: rgba(99, 102, 241, 0.06);
 }
 
 /* Improve the time gutter styling */
@@ -33,6 +38,12 @@
 /* Style the time indicators */
 .rbc-timeslot-group {
   min-height: 40px;
+  transition: background-color 120ms ease, box-shadow 120ms ease;
+}
+
+/* Hover whole hour group (starts at 9:00 AM due to calendar min) */
+.rbc-time-view .rbc-timeslot-group:hover {
+  background-color: rgba(99, 102, 241, 0.06) !important;
 }
 
 /* Improve current time indicator */
@@ -44,8 +55,9 @@
 }
 
 /* Add vertical grid lines */
-.rbc-day-slot .rbc-time-slot {
+.rbc-time-view .rbc-day-slot .rbc-time-slot {
   border-right: 1px dotted #e2e8f0;
+  cursor: crosshair;
 }
 
 /* Adjust day header */
@@ -62,8 +74,39 @@
 }
 
 /* Hover effect on slots */
-.rbc-day-slot .rbc-time-slot:hover {
-  background-color: rgba(99, 102, 241, 0.05);
+.rbc-time-view .rbc-day-slot .rbc-time-slot:hover {
+  background-color: rgba(99, 102, 241, 0.10) !important;
+  box-shadow: inset 0 0 0 1px rgba(99, 102, 241, 0.20) !important;
+}
+
+/* Active feedback on slots */
+.rbc-day-slot .rbc-time-slot:active {
+  background-color: rgba(99, 102, 241, 0.10);
+}
+
+/* Smooth hover for day backgrounds (week/day views) */
+.rbc-day-bg {
+  transition: background-color 120ms ease;
+}
+
+.rbc-day-bg:hover {
+  background-color: rgba(99, 102, 241, 0.04);
+}
+
+/* Highlight the drag/select region */
+.rbc-slot-selection {
+  background-color: rgba(99, 102, 241, 0.12) !important;
+  border: 1px solid rgba(99, 102, 241, 0.25) !important;
+  border-radius: 6px;
+}
+
+/* Month view: subtle hover for day cells only, not events */
+.rbc-month-view .rbc-row .rbc-date-cell {
+  transition: background-color 120ms ease;
+}
+
+.rbc-month-view .rbc-row .rbc-date-cell:hover {
+  background-color: rgba(99, 102, 241, 0.06);
 }
 
 /* Style the time labels */

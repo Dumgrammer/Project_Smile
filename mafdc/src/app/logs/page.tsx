@@ -267,7 +267,7 @@ export default function LogsPage() {
 
             {/* Statistics Cards */}
             {stats && (
-              <div className="px-4 lg:px-6">
+              <div id="tour-logs-stats" className="px-4 lg:px-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                   <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -372,7 +372,7 @@ export default function LogsPage() {
             
             <div className="px-4 lg:px-6">
                              {/* Logs Table */}
-               <Card>
+               <Card id="tour-logs-table">
                  <CardHeader>
                    <CardTitle>Activity Logs</CardTitle>
                  </CardHeader>

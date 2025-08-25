@@ -70,7 +70,7 @@ export default function Login() {
         description: "Welcome back!",
         variant: "default"
       });
-      router.push('/dashboard');
+      router.push('/appointments');
     }
   }
 

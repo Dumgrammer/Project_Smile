@@ -47,6 +47,16 @@ export function AppointmentDialogs({
   monthAppointments,
   date,
 }: AppointmentDialogsProps) {
+  const isPastDay = (targetDate: Date) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const day = new Date(targetDate);
+    day.setHours(0, 0, 0, 0);
+    return day < today;
+  };
+
+  const isPastSelectedDay = isPastDay(newAppointment.date);
+
   return (
     <>
       {/* Appointment Creation Dialog */}
@@ -76,7 +86,7 @@ export function AppointmentDialogs({
             </div>
             <div className="grid gap-2">
               <Label>Date</Label>
-              <div className="text-sm font-medium py-2 px-3 border rounded-md bg-gray-50">
+              <div className="text-sm font-medium py-2 px-3 border rounded-md bg-gray-50 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700">
                 {format(newAppointment.date, 'EEEE, MMMM d, yyyy')}
               </div>
             </div>
@@ -106,10 +116,15 @@ export function AppointmentDialogs({
                 />
               </div>
             </div>
+            {isPastSelectedDay && (
+              <div className="text-red-600 text-sm">You can&apos;t schedule on a past day.</div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowAppointmentModal(false)}>Cancel</Button>
-            <Button onClick={handleCreateAppointment}>Create Appointment</Button>
+            <Button onClick={handleCreateAppointment} disabled={isPastSelectedDay}>
+              Create Appointment
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -126,7 +141,7 @@ export function AppointmentDialogs({
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
                 <Label>Patient</Label>
-                <div className="text-sm font-medium py-2 px-3 border rounded-md bg-gray-50">
+                <div className="text-sm font-medium py-2 px-3 border rounded-md bg-gray-50 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700">
                   {selectedAppointment?.patient.firstName} {selectedAppointment?.patient.middleName || ''} {selectedAppointment?.patient.lastName}
                 </div>
               </div>
@@ -269,7 +284,7 @@ export function AppointmentDialogs({
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
                 <Label>Patient</Label>
-                <div className="text-sm font-medium py-2 px-3 border rounded-md bg-gray-50">
+                <div className="text-sm font-medium py-2 px-3 border rounded-md bg-gray-50 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700">
                   {selectedAppointment?.patient.firstName} {selectedAppointment?.patient.lastName}
                 </div>
               </div>
@@ -359,16 +374,16 @@ export function AppointmentDialogs({
           <DialogHeader>
             <DialogTitle className="text-xl">Appointments for {format(date, 'MMMM yyyy')}</DialogTitle>
           </DialogHeader>
-          <div className="max-h-[60vh] overflow-y-auto divide-y">
+          <div className="max-h-[60vh] overflow-y-auto divide-y dark:divide-slate-700">
             {monthAppointments.length === 0 ? (
-              <div className="text-center text-gray-500 py-8">No appointments this month.</div>
+              <div className="text-center text-gray-500 dark:text-slate-300 py-8">No appointments this month.</div>
             ) : (
               monthAppointments.map(event => (
                 <div key={event.id} className="py-3">
-                  <div className="font-medium text-sm">{event.title}</div>
-                  <div className="text-xs text-gray-500">{format(event.start, 'EEEE, MMMM d, yyyy h:mm a')}</div>
-                  <div className="text-xs text-gray-500">Patient: {event.patient?.firstName} {event.patient?.lastName}</div>
-                  <div className="text-xs text-gray-500">Status: {event.status}</div>
+                  <div className="font-medium text-sm dark:text-white">{event.title}</div>
+                  <div className="text-xs text-gray-500 dark:text-slate-300">{format(event.start, 'EEEE, MMMM d, yyyy h:mm a')}</div>
+                  <div className="text-xs text-gray-500 dark:text-slate-300">Patient: {event.patient?.firstName} {event.patient?.lastName}</div>
+                  <div className="text-xs text-gray-500 dark:text-slate-300">Status: {event.status}</div>
                 </div>
               ))
             )}

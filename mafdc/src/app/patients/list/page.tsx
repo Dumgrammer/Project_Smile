@@ -13,6 +13,12 @@ import {
 } from "@/components/ui/sidebar"
 import { usePatients } from "@/hooks/patients/patientHooks"
 import { z } from "zod"
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Filter, RefreshCw } from "lucide-react";
 
 export default function PatientsList() {
   const router = useRouter();
@@ -26,11 +32,19 @@ export default function PatientsList() {
     totalPatients: 0
   });
   const [showArchived, setShowArchived] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [filters, setFilters] = useState({
+    search: '',
+    gender: '',
+    ageRange: '',
+    status: ''
+  });
 
   // Memoize the fetchPatients function
   const fetchPatients = useCallback(async (page = 1, limit = 10, showArchived = false) => {
     try {
-      const response = await getPatients(page, limit, '', showArchived);
+      const response = await getPatients(page, limit, filters.search, showArchived);
       setPatients(response.patients);
       setPagination({
         page: response.currentPage,
@@ -41,7 +55,7 @@ export default function PatientsList() {
     } catch (error) {
       console.error('Error fetching patients:', error);
     }
-  }, [getPatients]);
+  }, [getPatients, filters.search]);
 
   useEffect(() => {
     // Check if logged in
@@ -65,6 +79,19 @@ export default function PatientsList() {
 
     loadPatients();
   }, [isLoading, showArchived, fetchPatients]);
+
+  const handleFilterChange = (key: string, value: string) => {
+    setFilters(prev => ({ 
+      ...prev, 
+      [key]: value
+    }));
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchPatients(1, 10, showArchived);
+    setRefreshing(false);
+  };
 
   if (isLoading || patientsLoading) {
     return (
@@ -90,22 +117,110 @@ export default function PatientsList() {
           <div className="@container/main flex flex-1 flex-col gap-2">
             <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
               <div className="px-4 lg:px-6">
-                <h1 className="text-3xl font-bold">
-                  Patients List
-                </h1>
-                <p className="text-slate-600">
-                  Manage all patient records
-                </p>
+                <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center mb-4">
+                  <div>
+                    <h1 className="text-3xl font-bold">
+                      Patients List
+                    </h1>
+                    <p className="text-slate-600">
+                      Manage all patient records
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline"
+                      onClick={() => setShowFilters(!showFilters)}
+                      className="flex items-center gap-2"
+                    >
+                      <Filter className="h-4 w-4" />
+                      Filters
+                    </Button>
+                    <Button 
+                      variant="outline"
+                      onClick={handleRefresh}
+                      disabled={refreshing}
+                      className="flex items-center gap-2"
+                    >
+                      <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                      {refreshing ? 'Refreshing...' : 'Refresh'}
+                    </Button>
+                  </div>
+                </div>
               </div>
-              <div className="px-4 lg:px-6">
-                <DataTable 
-                  data={patients} 
-                  pagination={pagination}
-                  showArchived={showArchived}
-                  onShowArchivedChange={setShowArchived}
-                  onPageChange={(page, limit) => fetchPatients(page, limit, showArchived)}
-                />
-              </div>
+                              {/* Filters */}
+                {showFilters && (
+                  <div className="px-4 lg:px-6">
+                    <Card className="mb-4">
+                      <CardHeader>
+                        <CardTitle>Filters</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                          <div>
+                            <Label htmlFor="search-filter">Search</Label>
+                            <Input
+                              id="search-filter"
+                              placeholder="Search by name, email, or phone..."
+                              value={filters.search}
+                              onChange={(e) => handleFilterChange('search', e.target.value)}
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="gender-filter">Gender</Label>
+                            <Select value={filters.gender} onValueChange={(value) => handleFilterChange('gender', value)}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="All genders" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="">All Genders</SelectItem>
+                                <SelectItem value="Male">Male</SelectItem>
+                                <SelectItem value="Female">Female</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label htmlFor="age-filter">Age Range</Label>
+                            <Select value={filters.ageRange} onValueChange={(value) => handleFilterChange('ageRange', value)}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="All ages" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="">All Ages</SelectItem>
+                                <SelectItem value="0-18">0-18</SelectItem>
+                                <SelectItem value="19-30">19-30</SelectItem>
+                                <SelectItem value="31-50">31-50</SelectItem>
+                                <SelectItem value="51+">51+</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label htmlFor="status-filter">Status</Label>
+                            <Select value={filters.status} onValueChange={(value) => handleFilterChange('status', value)}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="All statuses" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="">All Statuses</SelectItem>
+                                <SelectItem value="active">Active</SelectItem>
+                                <SelectItem value="archived">Archived</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
+
+                <div id="tour-patient-list" className="px-4 lg:px-6">
+                  <DataTable 
+                    data={patients} 
+                    pagination={pagination}
+                    showArchived={showArchived}
+                    onShowArchivedChange={setShowArchived}
+                    onPageChange={(page, limit) => fetchPatients(page, limit, showArchived)}
+                  />
+                </div>
             </div>
           </div>
         </div>

@@ -198,13 +198,14 @@ function ActionsCell({ row, onUpdate, onArchive, onHardDelete }: {
   };
   
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-8 w-8 p-0">
-          <IconDotsVertical className="h-4 w-4" />
-          <span className="sr-only">Open menu</span>
-        </Button>
-      </DropdownMenuTrigger>
+    <div className="tour-actions-menu">
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" className="h-8 w-8 p-0">
+            <IconDotsVertical className="h-4 w-4" />
+            <span className="sr-only">Open menu</span>
+          </Button>
+        </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuItem onClick={handleViewProfile} disabled={isNavigating}>
           <IconEye className="mr-2 h-4 w-4" />
@@ -236,7 +237,8 @@ function ActionsCell({ row, onUpdate, onArchive, onHardDelete }: {
           </>
         )}
       </DropdownMenuContent>
-    </DropdownMenu>
+      </DropdownMenu>
+    </div>
   );
 }
 
@@ -372,7 +374,7 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
   },
   {
     id: "actions",
-    header: "Actions",
+    header: () => <div id="tour-actions-column">Actions</div>,
     cell: ({ row, table }) => {
       const meta = table.options.meta as TableMeta;
       return <ActionsCell row={row} onUpdate={meta?.onUpdate} onArchive={meta?.onArchive} onHardDelete={meta?.onHardDelete} />;
@@ -649,7 +651,7 @@ export function DataTable({
       <div className="flex items-center justify-between px-4 lg:px-6">
         <div className="flex items-center gap-2">
           {onShowArchivedChange && (
-            <div className="flex items-center gap-2">
+            <div id="tour-archive-toggle" className="flex items-center gap-2">
               <Toggle
                 pressed={showArchived}
                 onPressedChange={onShowArchivedChange}
@@ -678,15 +680,16 @@ export function DataTable({
             </>
           )}
           
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="border-slate-200 hover:bg-slate-50">
-                <IconLayoutColumns className="text-violet-600 mr-1" />
-                <span className="hidden lg:inline">Customize Columns</span>
-                <span className="lg:hidden">Columns</span>
-                <IconChevronDown className="ml-1 text-slate-400" />
-              </Button>
-            </DropdownMenuTrigger>
+          <div id="tour-customize-columns">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="border-slate-200 hover:bg-slate-50">
+                  <IconLayoutColumns className="text-violet-600 mr-1" />
+                  <span className="hidden lg:inline">Customize Columns</span>
+                  <span className="lg:hidden">Columns</span>
+                  <IconChevronDown className="ml-1 text-slate-400" />
+                </Button>
+              </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56 border border-slate-200">
               {table
                 .getAllColumns()
@@ -709,9 +712,12 @@ export function DataTable({
                     </DropdownMenuCheckboxItem>
                   )
                 })}
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <AddPatientDialog onPatientAdded={onPageChange ? () => onPageChange(1, pageSize) : fetchPatients} />
+                          </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+          <div id="tour-add-patient">
+            <AddPatientDialog onPatientAdded={onPageChange ? () => onPageChange(1, pageSize) : fetchPatients} />
+          </div>
         </div>
       </div>
       <div className="relative flex flex-col gap-4 overflow-auto px-4 lg:px-6 mt-6">

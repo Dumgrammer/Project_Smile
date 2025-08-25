@@ -10,8 +10,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Eye, Archive, Trash2, RefreshCw, RotateCcw, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
+import { Select, SelectContent, SelectTrigger, SelectValue, SelectItem } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Eye, Archive, Trash2, RefreshCw, RotateCcw, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Filter } from "lucide-react";
 import { ReplyDialog } from "@/components/reply";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SiteHeader } from "@/components/site-header";
@@ -48,6 +49,12 @@ export default function InquiriesPage() {
     total: 0
   });
   const [currentTab, setCurrentTab] = useState('active');
+  const [showFilters, setShowFilters] = useState(false);
+  const [filters, setFilters] = useState({
+    search: '',
+    status: 'all',
+    dateRange: 'all'
+  });
 
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
@@ -279,8 +286,49 @@ export default function InquiriesPage() {
     setPagination(prev => ({ ...prev, page: 1 })); // Reset to first page when changing tabs
   };
 
-  // All inquiries are now paginated from the backend, no need to filter here
-  const displayedInquiries = inquiries;
+  const handleFilterChange = (key: string, value: string) => {
+    setFilters(prev => ({ 
+      ...prev, 
+      [key]: value
+    }));
+  };
+
+  // Filter inquiries based on current filters
+  const filteredInquiries = inquiries.filter(inquiry => {
+    const matchesSearch = !filters.search || 
+      inquiry.fullName.toLowerCase().includes(filters.search.toLowerCase()) ||
+      inquiry.email.toLowerCase().includes(filters.search.toLowerCase()) ||
+      inquiry.subject.toLowerCase().includes(filters.search.toLowerCase()) ||
+      inquiry.message.toLowerCase().includes(filters.search.toLowerCase());
+    
+    const matchesStatus = filters.status === 'all' || inquiry.status === filters.status;
+    
+    const matchesDateRange = filters.dateRange === 'all' || (() => {
+      const inquiryDate = new Date(inquiry.createdAt);
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const weekStart = new Date(today.getTime() - (today.getDay() * 24 * 60 * 60 * 1000));
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const yearStart = new Date(now.getFullYear(), 0, 1);
+      
+      switch (filters.dateRange) {
+        case 'today':
+          return inquiryDate >= today;
+        case 'week':
+          return inquiryDate >= weekStart;
+        case 'month':
+          return inquiryDate >= monthStart;
+        case 'year':
+          return inquiryDate >= yearStart;
+        default:
+          return true;
+      }
+    })();
+    
+    return matchesSearch && matchesStatus && matchesDateRange;
+  });
+
+  const displayedInquiries = filteredInquiries;
 
   // Show loading while checking authentication
   if (authLoading) {
@@ -307,31 +355,94 @@ export default function InquiriesPage() {
                   <h1 className="text-2xl sm:text-3xl font-bold">Inquiries Management</h1>
                   <p className="text-slate-600 text-sm sm:text-base">Manage customer inquiries and communications</p>
                 </div>
-                <Button 
-                  variant="outline"
-                  onClick={() => fetchInquiries()}
-                  disabled={refreshing}
-                  className="flex items-center gap-2"
-                >
-                  <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-                  {refreshing ? 'Refreshing...' : 'Refresh'}
-                </Button>
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline"
+                    onClick={() => setShowFilters(!showFilters)}
+                    className="flex items-center gap-2"
+                  >
+                    <Filter className="h-4 w-4" />
+                    Filters
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    onClick={() => fetchInquiries()}
+                    disabled={refreshing}
+                    className="flex items-center gap-2"
+                  >
+                    <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                    {refreshing ? 'Refreshing...' : 'Refresh'}
+                  </Button>
+                </div>
               </div>
             </div>
             
+            {/* Filters */}
+            {showFilters && (
+              <div className="px-4 lg:px-6">
+                <Card className="mb-4">
+                  <CardHeader>
+                    <CardTitle>Filters</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <Label htmlFor="search-filter">Search</Label>
+                        <Input
+                          id="search-filter"
+                          placeholder="Search by name, email, or subject..."
+                          value={filters.search}
+                          onChange={(e) => handleFilterChange('search', e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="status-filter">Status</Label>
+                                                 <Select value={filters.status} onValueChange={(value) => handleFilterChange('status', value)}>
+                           <SelectTrigger>
+                             <SelectValue placeholder="All statuses" />
+                           </SelectTrigger>
+                           <SelectContent>
+                             <SelectItem value="all">All Statuses</SelectItem>
+                             <SelectItem value="Unread">Unread</SelectItem>
+                             <SelectItem value="Read">Read</SelectItem>
+                             <SelectItem value="Replied">Replied</SelectItem>
+                           </SelectContent>
+                         </Select>
+                      </div>
+                      <div>
+                        <Label htmlFor="date-filter">Date Range</Label>
+                                                 <Select value={filters.dateRange} onValueChange={(value) => handleFilterChange('dateRange', value)}>
+                           <SelectTrigger>
+                             <SelectValue placeholder="All dates" />
+                           </SelectTrigger>
+                           <SelectContent>
+                             <SelectItem value="all">All Dates</SelectItem>
+                             <SelectItem value="today">Today</SelectItem>
+                             <SelectItem value="week">This Week</SelectItem>
+                             <SelectItem value="month">This Month</SelectItem>
+                             <SelectItem value="year">This Year</SelectItem>
+                           </SelectContent>
+                         </Select>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+            
             <div className="px-4 lg:px-6">
               {/* Inquiries Table with Tabs */}
-              <Card>
+              <Card id="tour-inquiry-list">
                 <CardHeader>
                   <CardTitle>Customer Inquiries</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <Tabs value={currentTab} onValueChange={handleTabChange} className="w-full">
-                    <TabsList className="mb-4 flex flex-row w-full justify-center bg-slate-100 rounded-full shadow-sm p-1 gap-2">
-                      <TabsTrigger value="active" className="flex-1 px-4 py-2 text-sm font-semibold rounded-full transition data-[state=active]:bg-violet-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=inactive]:bg-transparent data-[state=inactive]:text-slate-600">
+                    <TabsList id="tour-inquiry-filters" className="mb-4 flex flex-row w-full justify-center bg-slate-100 dark:bg-slate-800 rounded-full shadow-sm p-1 gap-2">
+                      <TabsTrigger value="active" className="flex-1 px-4 py-2 text-sm font-semibold rounded-full transition data-[state=active]:bg-violet-600 dark:data-[state=active]:bg-violet-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=inactive]:bg-transparent data-[state=inactive]:text-slate-600 dark:data-[state=inactive]:text-slate-300">
                         Active Messages ({currentTab === 'active' ? pagination.total : '...'})
                       </TabsTrigger>
-                      <TabsTrigger value="archived" className="flex-1 px-4 py-2 text-sm font-semibold rounded-full transition data-[state=active]:bg-violet-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=inactive]:bg-transparent data-[state=inactive]:text-slate-600">
+                      <TabsTrigger value="archived" className="flex-1 px-4 py-2 text-sm font-semibold rounded-full transition data-[state=active]:bg-violet-600 dark:data-[state=active]:bg-violet-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=inactive]:bg-transparent data-[state=inactive]:text-slate-600 dark:data-[state=inactive]:text-slate-300">
                         Archived Messages ({currentTab === 'archived' ? pagination.total : '...'})
                       </TabsTrigger>
                     </TabsList>
@@ -351,7 +462,7 @@ export default function InquiriesPage() {
                           {displayedInquiries.map((inquiry) => (
                             <TableRow 
                               key={inquiry.id} 
-                              className={inquiry.status === 'Unread' ? 'bg-red-50' : ''}
+                              className={inquiry.status === 'Unread' ? 'bg-red-50 dark:bg-violet-950/40' : ''}
                             >
                               <TableCell>
                                 <div>
@@ -367,7 +478,7 @@ export default function InquiriesPage() {
                                 </div>
                               </TableCell>
                               <TableCell>
-                                <Badge variant={getStatusBadgeVariant(inquiry.status)}>
+                                <Badge variant={getStatusBadgeVariant(inquiry.status)} className="dark:bg-violet-700 dark:text-white dark:border-violet-600">
                                   {inquiry.status}
                                 </Badge>
                               </TableCell>

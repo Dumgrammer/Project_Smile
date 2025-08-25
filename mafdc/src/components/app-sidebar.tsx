@@ -9,7 +9,8 @@ import {
   IconInnerShadowTop,
   IconListDetails,
   IconLogout,
-  IconMessageCircle
+  IconMessageCircle,
+  IconSettings
 } from "@tabler/icons-react"
 
 import { NavMain } from "@/components/nav-main"
@@ -52,14 +53,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   // Memoize navigation items to prevent unnecessary re-renders
   const navMain = useMemo(() => [
     {
-      title: "Dashboard",
-      url: "/dashboard",
-      icon: IconDashboard,
-    },
-    {
       title: "Appointments",
       url: "/appointments",
       icon: IconListDetails,
+    },
+    {
+      title: "Dashboard",
+      url: "/dashboard",
+      icon: IconDashboard,
     },
     {
       title: "Patients",
@@ -86,6 +87,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   // Memoize secondary navigation items
   const navSecondary = useMemo(() => [
+    {
+      title: "Settings",
+      url: "/settings",
+      icon: IconSettings,
+    },
     {
       title: "Logout",
       url: "#",

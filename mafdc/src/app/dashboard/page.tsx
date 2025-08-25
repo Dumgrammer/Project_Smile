@@ -78,6 +78,7 @@ export default function Dashboard() {
                 </p>
               </div>
               <SectionCards
+                id="tour-dashboard-stats"
                 totalVisitors={stats?.totalVisitors}
                 activePatients={stats?.activePatients}
                 totalRevenue={stats?.totalRevenue}
@@ -85,7 +86,7 @@ export default function Dashboard() {
                 loading={loading}
                 error={error}
               />
-              <div className="px-4 lg:px-6">
+              <div id="tour-recent-activity" className="px-4 lg:px-6">
                 <ChartAreaInteractive />
               </div>
             </div>
