@@ -17,7 +17,7 @@ export default function Navigation() {
               <span className="text-xl font-bold text-violet-600 dark:text-violet-400">MA Florencio Dental Clinic</span>
             </Link>
           </div>
-          
+
           <div className="flex items-center">
             <div className="hidden md:block">
               <div className="ml-10 flex items-baseline space-x-4">
@@ -32,6 +32,9 @@ export default function Navigation() {
                 </Link>
                 <Link href="/contact" className="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-violet-600 dark:text-gray-300 dark:hover:text-violet-400">
                   Contact
+                </Link>
+                <Link href="/login" className="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-violet-600 dark:text-gray-300 dark:hover:text-violet-400">
+                  Login
                 </Link>
               </div>
             </div>

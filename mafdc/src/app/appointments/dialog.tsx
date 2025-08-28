@@ -85,10 +85,17 @@ export function AppointmentDialogs({
               />
             </div>
             <div className="grid gap-2">
-              <Label>Date</Label>
-              <div className="text-sm font-medium py-2 px-3 border rounded-md bg-gray-50 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700">
-                {format(newAppointment.date, 'EEEE, MMMM d, yyyy')}
-              </div>
+              <Label htmlFor="appointmentDate">Date</Label>
+              <Input 
+                id="appointmentDate"
+                type="date"
+                value={format(newAppointment.date, 'yyyy-MM-dd')}
+                onChange={(e) => {
+                  const newDate = new Date(e.target.value);
+                  setNewAppointment({...newAppointment, date: newDate});
+                }}
+                min={format(new Date(), 'yyyy-MM-dd')}
+              />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
@@ -120,9 +127,19 @@ export function AppointmentDialogs({
               <div className="text-red-600 text-sm">You can&apos;t schedule on a past day.</div>
             )}
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAppointmentModal(false)}>Cancel</Button>
-            <Button onClick={handleCreateAppointment} disabled={isPastSelectedDay}>
+          <DialogFooter className="flex flex-col sm:flex-row gap-2">
+            <Button 
+              variant="outline" 
+              className="flex-1"
+              onClick={() => setShowAppointmentModal(false)}
+            >
+              Cancel
+            </Button>
+            <Button 
+              className="flex-1"
+              onClick={handleCreateAppointment} 
+              disabled={isPastSelectedDay}
+            >
               Create Appointment
             </Button>
           </DialogFooter>
@@ -254,22 +271,24 @@ export function AppointmentDialogs({
               </div>
             </div>
           )}
-          <DialogFooter className="flex justify-between">
+                     <DialogFooter className="flex flex-col sm:flex-row gap-2">
+             <Button 
+               variant="destructive" 
+               className="flex-1"
+               onClick={() => {
+                 setSelectedAppointment(null);
+                 setIsRescheduling(false);
+                 setShowEditModal(false);
+               }}
+             >
+               Cancel
+             </Button>
             <Button 
-              variant="destructive" 
-              onClick={() => {
-                setSelectedAppointment(null);
-                setIsRescheduling(false);
-                setShowEditModal(false);
-              }}
+              className="flex-1"
+              onClick={handleUpdateAppointment}
             >
-              Cancel
+              {isRescheduling ? 'Reschedule' : 'Save Changes'}
             </Button>
-            <div className="flex gap-2">
-              <Button onClick={handleUpdateAppointment}>
-                {isRescheduling ? 'Reschedule Appointment' : 'Save Changes'}
-              </Button>
-            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -336,11 +355,18 @@ export function AppointmentDialogs({
               </div>
             </div>
           )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowNotesModal(false)}>
+          <DialogFooter className="flex flex-col sm:flex-row gap-2">
+            <Button 
+              variant="outline" 
+              className="flex-1"
+              onClick={() => setShowNotesModal(false)}
+            >
               Cancel
             </Button>
-            <Button onClick={handleSaveNotes}>
+            <Button 
+              className="flex-1"
+              onClick={handleSaveNotes}
+            >
               Complete Appointment
             </Button>
           </DialogFooter>

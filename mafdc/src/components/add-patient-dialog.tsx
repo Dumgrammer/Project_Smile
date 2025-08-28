@@ -70,7 +70,9 @@ const formSchema = z.object({
   lastName: z.string().min(2, "Last name must be at least 2 characters"),
   birthDate: z.string().min(1, "Birth date is required"),
   gender: z.string().min(1, "Gender is required"),
-  contactNumber: z.string().min(10, "Contact number must be at least 10 digits"),
+  contactNumber: z.string()
+    .min(10, "Contact number must be at least 10 digits")
+    .regex(/^\d+$/, "Contact number must contain only numbers"),
   email: z.string().email("Invalid email address").optional().or(z.literal("")),
   cases: z.array(z.object({
     title: z.string().min(1, "Case title is required"),
@@ -375,7 +377,22 @@ export function AddPatientDialog({ onPatientAdded }: AddPatientDialogProps) {
                 <FormItem>
                   <FormLabel>Contact Number</FormLabel>
                   <FormControl>
-                    <Input placeholder="+1234567890" {...field} />
+                    <Input 
+                      type="tel"
+                      placeholder="1234567890" 
+                      {...field}
+                      onKeyPress={(e) => {
+                        // Only allow numbers
+                        if (!/[0-9]/.test(e.key)) {
+                          e.preventDefault();
+                        }
+                      }}
+                      onChange={(e) => {
+                        // Remove any non-numeric characters
+                        const numericValue = e.target.value.replace(/\D/g, '');
+                        field.onChange(numericValue);
+                      }}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -490,7 +507,22 @@ export function AddPatientDialog({ onPatientAdded }: AddPatientDialogProps) {
                   <FormItem>
                     <FormLabel>Contact Number</FormLabel>
                     <FormControl>
-                      <Input placeholder="+1234567890" {...field} />
+                      <Input 
+                        type="tel"
+                        placeholder="1234567890" 
+                        {...field}
+                        onKeyPress={(e) => {
+                          // Only allow numbers
+                          if (!/[0-9]/.test(e.key)) {
+                            e.preventDefault();
+                          }
+                        }}
+                        onChange={(e) => {
+                          // Remove any non-numeric characters
+                          const numericValue = e.target.value.replace(/\D/g, '');
+                          field.onChange(numericValue);
+                        }}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

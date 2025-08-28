@@ -3,7 +3,7 @@ import { SidebarTrigger } from "@/components/ui/sidebar"
 import { NotificationsDropdown } from "@/components/notifications"
 import { HelpCircle } from "lucide-react"
 import Link from "next/link"
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import Joyride, { Step } from "react-joyride"
 import { usePathname } from "next/navigation"
 

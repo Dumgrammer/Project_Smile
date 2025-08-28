@@ -59,8 +59,7 @@ export function WeekCalendar({ date, events, onSlotClick, onEventClick, startHou
   const eventsByDay = useMemo(() => {
     const map: Record<number, CalendarEvent[]> = {};
     days.forEach((d, idx) => (map[idx] = []));
-    for (const e of events) {
-      const idxBase = daysCount === 1 ? days[0].getDay() : 1; // week starts Monday (1)
+    for (const e of events) { // week starts Monday (1)
       const idx = daysCount === 1 ? 0 : ((new Date(e.start).getDay() + 6) % 7);
       if (map[idx]) map[idx].push(e);
     }

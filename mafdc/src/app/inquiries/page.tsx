@@ -448,192 +448,421 @@ export default function InquiriesPage() {
                     </TabsList>
 
                     <TabsContent value="active">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Customer</TableHead>
-                            <TableHead>Subject</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead>Date</TableHead>
-                            <TableHead>Actions</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {displayedInquiries.map((inquiry) => (
-                            <TableRow 
-                              key={inquiry.id} 
-                              className={inquiry.status === 'Unread' ? 'bg-red-50 dark:bg-violet-950/40' : ''}
-                            >
-                              <TableCell>
-                                <div>
-                                  <div className="font-medium">{inquiry.fullName}</div>
-                                  <div className="text-sm text-gray-500">{inquiry.email}</div>
-                                  <div className="text-sm text-gray-500">{inquiry.phone}</div>
+                      {/* Desktop Table */}
+                      <div className="hidden md:block">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="dark:text-gray-300">Customer</TableHead>
+                              <TableHead className="dark:text-gray-300">Subject</TableHead>
+                              <TableHead className="dark:text-gray-300">Status</TableHead>
+                              <TableHead className="dark:text-gray-300">Date</TableHead>
+                              <TableHead className="dark:text-gray-300">Actions</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {displayedInquiries.map((inquiry) => (
+                              <TableRow 
+                                key={inquiry.id} 
+                                className={inquiry.status === 'Unread' ? 'bg-red-50 dark:bg-violet-950/40' : 'dark:border-gray-700'}
+                              >
+                                <TableCell>
+                                  <div>
+                                    <div className="font-medium dark:text-white">{inquiry.fullName}</div>
+                                    <div className="text-sm text-gray-500 dark:text-gray-400 break-all">{inquiry.email}</div>
+                                    <div className="text-sm text-gray-500 dark:text-gray-400">{inquiry.phone}</div>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="max-w-xs">
+                                    <div className="font-medium truncate dark:text-white">{inquiry.subject}</div>
+                                    <div className="text-sm text-gray-500 dark:text-gray-400 truncate">{inquiry.message}</div>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <Badge variant={getStatusBadgeVariant(inquiry.status)} className="dark:bg-violet-700 dark:text-white dark:border-violet-600">
+                                    {inquiry.status}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="text-sm text-gray-500 dark:text-gray-400">
+                                    {formatDate(inquiry.createdAt)}
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex items-center gap-2">
+                                    <Button 
+                                      size="sm" 
+                                      variant="outline"
+                                      onClick={() => handleReadInquiry(inquiry)}
+                                      className="dark:border-gray-600 dark:hover:bg-gray-700"
+                                    >
+                                      <Eye className="h-4 w-4" />
+                                    </Button>
+                                    <Button 
+                                      size="sm" 
+                                      variant="outline"
+                                      onClick={() => handleArchiveInquiry(inquiry)}
+                                      disabled={loading}
+                                      className="dark:border-gray-600 dark:hover:bg-gray-700"
+                                    >
+                                      <Archive className="h-4 w-4" />
+                                    </Button>
+                                    <Button 
+                                      size="sm" 
+                                      variant="outline" 
+                                      className="text-red-600 hover:text-red-700 dark:border-gray-600 dark:hover:bg-gray-700"
+                                      onClick={() => handleDeleteInquiry(inquiry)}
+                                      disabled={loading}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                            {displayedInquiries.length === 0 && (
+                              <TableRow>
+                                <TableCell colSpan={5} className="text-center py-8 text-gray-500 dark:text-gray-400">
+                                  {currentTab === 'active' ? 'No active inquiries found' : 'No archived inquiries found'}
+                                </TableCell>
+                              </TableRow>
+                            )}
+                          </TableBody>
+                        </Table>
+                      </div>
+
+                      {/* Mobile Cards */}
+                      <div className="md:hidden space-y-4">
+                        {displayedInquiries.map((inquiry) => (
+                          <div 
+                            key={inquiry.id}
+                            className={`p-4 rounded-lg border ${
+                              inquiry.status === 'Unread' 
+                                ? 'bg-red-50 dark:bg-violet-950/40 border-red-200 dark:border-violet-800' 
+                                : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+                            }`}
+                          >
+                            <div className="space-y-3">
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1 min-w-0">
+                                  <h3 className="font-medium text-gray-900 dark:text-white truncate">{inquiry.fullName}</h3>
+                                  <p className="text-sm text-gray-500 dark:text-gray-400 break-all">{inquiry.email}</p>
+                                  <p className="text-sm text-gray-500 dark:text-gray-400">{inquiry.phone}</p>
                                 </div>
-                              </TableCell>
-                              <TableCell>
-                                <div className="max-w-xs">
-                                  <div className="font-medium truncate">{inquiry.subject}</div>
-                                  <div className="text-sm text-gray-500 truncate">{inquiry.message}</div>
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                <Badge variant={getStatusBadgeVariant(inquiry.status)} className="dark:bg-violet-700 dark:text-white dark:border-violet-600">
+                                <Badge variant={getStatusBadgeVariant(inquiry.status)} className="ml-2 text-xs dark:bg-violet-700 dark:text-white dark:border-violet-600 flex-shrink-0">
                                   {inquiry.status}
                                 </Badge>
-                              </TableCell>
-                              <TableCell>
-                                <div className="text-sm text-gray-500">
+                              </div>
+                              
+                              <div>
+                                <h4 className="font-medium text-gray-900 dark:text-white text-sm mb-1">{inquiry.subject}</h4>
+                                <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">{inquiry.message}</p>
+                              </div>
+                              
+                              <div className="flex items-center justify-between pt-2 border-t border-gray-200 dark:border-gray-600">
+                                <span className="text-xs text-gray-500 dark:text-gray-400">
                                   {formatDate(inquiry.createdAt)}
-                                </div>
-                              </TableCell>
-                              <TableCell>
+                                </span>
                                 <div className="flex items-center gap-2">
                                   <Button 
                                     size="sm" 
                                     variant="outline"
                                     onClick={() => handleReadInquiry(inquiry)}
+                                    className="dark:border-gray-600 dark:hover:bg-gray-700"
                                   >
-                                    <Eye className="h-4 w-4" />
+                                    <Eye className="h-3 w-3" />
                                   </Button>
                                   <Button 
                                     size="sm" 
                                     variant="outline"
                                     onClick={() => handleArchiveInquiry(inquiry)}
                                     disabled={loading}
+                                    className="dark:border-gray-600 dark:hover:bg-gray-700"
                                   >
-                                    <Archive className="h-4 w-4" />
+                                    <Archive className="h-3 w-3" />
                                   </Button>
                                   <Button 
                                     size="sm" 
                                     variant="outline" 
-                                    className="text-red-600 hover:text-red-700"
+                                    className="text-red-600 hover:text-red-700 dark:border-gray-600 dark:hover:bg-gray-700"
                                     onClick={() => handleDeleteInquiry(inquiry)}
                                     disabled={loading}
                                   >
-                                    <Trash2 className="h-4 w-4" />
+                                    <Trash2 className="h-3 w-3" />
                                   </Button>
                                 </div>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                          {displayedInquiries.length === 0 && (
-                            <TableRow>
-                              <TableCell colSpan={5} className="text-center py-8 text-gray-500">
-                                {currentTab === 'active' ? 'No active inquiries found' : 'No archived inquiries found'}
-                              </TableCell>
-                            </TableRow>
-                          )}
-                        </TableBody>
-                      </Table>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                        {displayedInquiries.length === 0 && (
+                          <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                            {currentTab === 'active' ? 'No active inquiries found' : 'No archived inquiries found'}
+                          </div>
+                        )}
+                      </div>
                     </TabsContent>
 
                     <TabsContent value="archived">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Customer</TableHead>
-                            <TableHead>Subject</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead>Date</TableHead>
-                            <TableHead>Actions</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {displayedInquiries.map((inquiry) => (
-                            <TableRow key={inquiry.id} className="opacity-70">
-                              <TableCell>
-                                <div>
-                                  <div className="font-medium">{inquiry.fullName}</div>
-                                  <div className="text-sm text-gray-500">{inquiry.email}</div>
-                                  <div className="text-sm text-gray-500">{inquiry.phone}</div>
+                      {/* Desktop Table */}
+                      <div className="hidden md:block">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="dark:text-gray-300">Customer</TableHead>
+                              <TableHead className="dark:text-gray-300">Subject</TableHead>
+                              <TableHead className="dark:text-gray-300">Status</TableHead>
+                              <TableHead className="dark:text-gray-300">Date</TableHead>
+                              <TableHead className="dark:text-gray-300">Actions</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {displayedInquiries.map((inquiry) => (
+                              <TableRow key={inquiry.id} className="opacity-70 dark:border-gray-700">
+                                <TableCell>
+                                  <div>
+                                    <div className="font-medium dark:text-white">{inquiry.fullName}</div>
+                                    <div className="text-sm text-gray-500 dark:text-gray-400 break-all">{inquiry.email}</div>
+                                    <div className="text-sm text-gray-500 dark:text-gray-400">{inquiry.phone}</div>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="max-w-xs">
+                                    <div className="font-medium truncate dark:text-white">{inquiry.subject}</div>
+                                    <div className="text-sm text-gray-500 dark:text-gray-400 truncate">{inquiry.message}</div>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex flex-wrap gap-1">
+                                    <Badge variant={getStatusBadgeVariant(inquiry.status)} className="dark:bg-violet-700 dark:text-white dark:border-violet-600">
+                                      {inquiry.status}
+                                    </Badge>
+                                    <Badge variant="secondary" className="dark:bg-gray-700 dark:text-gray-300">
+                                      Archived
+                                    </Badge>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="text-sm text-gray-500 dark:text-gray-400">
+                                    {formatDate(inquiry.createdAt)}
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex items-center gap-2">
+                                    <Button 
+                                      size="sm" 
+                                      variant="outline"
+                                      onClick={() => handleReadInquiry(inquiry)}
+                                      className="dark:border-gray-600 dark:hover:bg-gray-700"
+                                    >
+                                      <Eye className="h-4 w-4" />
+                                    </Button>
+                                    <Button 
+                                      size="sm" 
+                                      variant="outline"
+                                      className="text-green-600 hover:text-green-700 dark:border-gray-600 dark:hover:bg-gray-700"
+                                      onClick={() => handleRestoreInquiry(inquiry)}
+                                      disabled={loading}
+                                      title="Restore inquiry"
+                                    >
+                                      <RotateCcw className="h-4 w-4" />
+                                    </Button>
+                                    <Button 
+                                      size="sm" 
+                                      variant="outline" 
+                                      className="text-red-600 hover:text-red-700 dark:border-gray-600 dark:hover:bg-gray-700"
+                                      onClick={() => handleDeleteInquiry(inquiry)}
+                                      disabled={loading}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                            {displayedInquiries.length === 0 && (
+                              <TableRow>
+                                <TableCell colSpan={5} className="text-center py-8 text-gray-500 dark:text-gray-400">
+                                  No archived inquiries found
+                                </TableCell>
+                              </TableRow>
+                            )}
+                          </TableBody>
+                        </Table>
+                      </div>
+
+                      {/* Mobile Cards */}
+                      <div className="md:hidden space-y-4">
+                        {displayedInquiries.map((inquiry) => (
+                          <div 
+                            key={inquiry.id}
+                            className="p-4 rounded-lg border bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 opacity-70"
+                          >
+                            <div className="space-y-3">
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1 min-w-0">
+                                  <h3 className="font-medium text-gray-900 dark:text-white truncate">{inquiry.fullName}</h3>
+                                  <p className="text-sm text-gray-500 dark:text-gray-400 break-all">{inquiry.email}</p>
+                                  <p className="text-sm text-gray-500 dark:text-gray-400">{inquiry.phone}</p>
                                 </div>
-                              </TableCell>
-                              <TableCell>
-                                <div className="max-w-xs">
-                                  <div className="font-medium truncate">{inquiry.subject}</div>
-                                  <div className="text-sm text-gray-500 truncate">{inquiry.message}</div>
+                                <div className="ml-2 flex flex-col gap-1 flex-shrink-0">
+                                  <Badge variant={getStatusBadgeVariant(inquiry.status)} className="text-xs dark:bg-violet-700 dark:text-white dark:border-violet-600">
+                                    {inquiry.status}
+                                  </Badge>
+                                  <Badge variant="secondary" className="text-xs dark:bg-gray-700 dark:text-gray-300">
+                                    Archived
+                                  </Badge>
                                 </div>
-                              </TableCell>
-                              <TableCell>
-                                <Badge variant={getStatusBadgeVariant(inquiry.status)}>
-                                  {inquiry.status}
-                                </Badge>
-                                <Badge variant="secondary" className="ml-1">
-                                  Archived
-                                </Badge>
-                              </TableCell>
-                              <TableCell>
-                                <div className="text-sm text-gray-500">
+                              </div>
+                              
+                              <div>
+                                <h4 className="font-medium text-gray-900 dark:text-white text-sm mb-1">{inquiry.subject}</h4>
+                                <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">{inquiry.message}</p>
+                              </div>
+                              
+                              <div className="flex items-center justify-between pt-2 border-t border-gray-200 dark:border-gray-600">
+                                <span className="text-xs text-gray-500 dark:text-gray-400">
                                   {formatDate(inquiry.createdAt)}
-                                </div>
-                              </TableCell>
-                              <TableCell>
+                                </span>
                                 <div className="flex items-center gap-2">
                                   <Button 
                                     size="sm" 
                                     variant="outline"
                                     onClick={() => handleReadInquiry(inquiry)}
+                                    className="dark:border-gray-600 dark:hover:bg-gray-700"
                                   >
-                                    <Eye className="h-4 w-4" />
+                                    <Eye className="h-3 w-3" />
                                   </Button>
                                   <Button 
                                     size="sm" 
                                     variant="outline"
-                                    className="text-green-600 hover:text-green-700"
+                                    className="text-green-600 hover:text-green-700 dark:border-gray-600 dark:hover:bg-gray-700"
                                     onClick={() => handleRestoreInquiry(inquiry)}
                                     disabled={loading}
                                     title="Restore inquiry"
                                   >
-                                    <RotateCcw className="h-4 w-4" />
+                                    <RotateCcw className="h-3 w-3" />
                                   </Button>
                                   <Button 
                                     size="sm" 
                                     variant="outline" 
-                                    className="text-red-600 hover:text-red-700"
+                                    className="text-red-600 hover:text-red-700 dark:border-gray-600 dark:hover:bg-gray-700"
                                     onClick={() => handleDeleteInquiry(inquiry)}
                                     disabled={loading}
                                   >
-                                    <Trash2 className="h-4 w-4" />
+                                    <Trash2 className="h-3 w-3" />
                                   </Button>
                                 </div>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                          {displayedInquiries.length === 0 && (
-                            <TableRow>
-                              <TableCell colSpan={5} className="text-center py-8 text-gray-500">
-                                No archived inquiries found
-                              </TableCell>
-                            </TableRow>
-                          )}
-                        </TableBody>
-                      </Table>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                        {displayedInquiries.length === 0 && (
+                          <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                            No archived inquiries found
+                          </div>
+                        )}
+                      </div>
                     </TabsContent>
                   </Tabs>
                   
                   {/* Pagination Controls */}
-                  <div className="flex items-center justify-between px-4 py-4 border-t">
-                    <div className="text-slate-500 text-sm flex">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-4 py-4 border-t dark:border-gray-700 gap-4 sm:gap-0">
+                    <div className="text-slate-500 dark:text-gray-400 text-xs sm:text-sm flex">
                       <span className="font-medium">{pagination.total}</span> total inquiries
                     </div>
-                    <div className="flex items-center gap-8">
+                    
+                    {/* Mobile Layout */}
+                    <div className="flex flex-col gap-3 w-full sm:hidden">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Label htmlFor="rows-per-page-mobile" className="text-xs font-medium text-violet-600 dark:text-violet-400">
+                            Rows
+                          </Label>
+                          <Select
+                            value={`${pagination.limit}`}
+                            onValueChange={(value) => handlePageSizeChange(Number(value))}
+                          >
+                            <SelectTrigger className="w-16 h-8 border-violet-200 dark:border-violet-700 dark:bg-gray-800" id="rows-per-page-mobile">
+                              <SelectValue placeholder={pagination.limit} />
+                            </SelectTrigger>
+                            <SelectContent side="top" className="dark:bg-gray-800 dark:border-gray-700">
+                              {[5, 10, 20, 30, 50].map((size) => (
+                                <div 
+                                  key={size} 
+                                  className="hover:bg-violet-50/20 dark:hover:bg-violet-900/20 cursor-pointer px-2 py-1.5 text-xs dark:text-gray-300"
+                                  onClick={() => handlePageSizeChange(size)}
+                                >
+                                  {size}
+                                </div>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="flex items-center justify-center text-xs font-medium dark:text-gray-300">
+                          Page <span className="text-violet-600 dark:text-violet-400 mx-1 font-semibold">{pagination.page}</span> of{" "}
+                          <span className="text-violet-600 dark:text-violet-400 mx-1 font-semibold">{pagination.totalPages}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-center gap-1">
+                        <Button
+                          variant="outline"
+                          className="h-8 w-8 p-0 border-slate-200 dark:border-gray-600 hover:bg-slate-50 dark:hover:bg-gray-700"
+                          onClick={() => handlePageChange(1)}
+                          disabled={pagination.page === 1}
+                        >
+                          <span className="sr-only">Go to first page</span>
+                          <ChevronsLeft className="text-violet-600 dark:text-violet-400 h-3 w-3" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="h-8 w-8 p-0 border-slate-200 dark:border-gray-600 hover:bg-slate-50 dark:hover:bg-gray-700"
+                          onClick={() => handlePageChange(pagination.page - 1)}
+                          disabled={pagination.page === 1}
+                        >
+                          <span className="sr-only">Go to previous page</span>
+                          <ChevronLeft className="text-violet-600 dark:text-violet-400 h-3 w-3" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="h-8 w-8 p-0 border-slate-200 dark:border-gray-600 hover:bg-slate-50 dark:hover:bg-gray-700"
+                          onClick={() => handlePageChange(pagination.page + 1)}
+                          disabled={pagination.page >= pagination.totalPages}
+                        >
+                          <span className="sr-only">Go to next page</span>
+                          <ChevronRight className="text-violet-600 dark:text-violet-400 h-3 w-3" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="h-8 w-8 p-0 border-slate-200 dark:border-gray-600 hover:bg-slate-50 dark:hover:bg-gray-700"
+                          onClick={() => handlePageChange(pagination.totalPages)}
+                          disabled={pagination.page >= pagination.totalPages}
+                        >
+                          <span className="sr-only">Go to last page</span>
+                          <ChevronsRight className="text-violet-600 dark:text-violet-400 h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Desktop Layout */}
+                    <div className="hidden sm:flex items-center gap-8">
                       <div className="flex items-center gap-2">
-                        <Label htmlFor="rows-per-page" className="text-sm font-medium text-violet-600">
+                        <Label htmlFor="rows-per-page" className="text-sm font-medium text-violet-600 dark:text-violet-400">
                           Rows per page
                         </Label>
                         <Select
                           value={`${pagination.limit}`}
                           onValueChange={(value) => handlePageSizeChange(Number(value))}
                         >
-                          <SelectTrigger className="w-20 border-violet-200" id="rows-per-page">
+                          <SelectTrigger className="w-20 border-violet-200 dark:border-violet-700 dark:bg-gray-800" id="rows-per-page">
                             <SelectValue placeholder={pagination.limit} />
                           </SelectTrigger>
-                          <SelectContent side="top">
+                          <SelectContent side="top" className="dark:bg-gray-800 dark:border-gray-700">
                             {[5, 10, 20, 30, 50].map((size) => (
                               <div 
                                 key={size} 
-                                className="hover:bg-violet-50/20 cursor-pointer px-2 py-1.5 text-sm"
+                                className="hover:bg-violet-50/20 dark:hover:bg-violet-900/20 cursor-pointer px-2 py-1.5 text-sm dark:text-gray-300"
                                 onClick={() => handlePageSizeChange(size)}
                               >
                                 {size}
@@ -642,46 +871,46 @@ export default function InquiriesPage() {
                           </SelectContent>
                         </Select>
                       </div>
-                      <div className="flex items-center justify-center text-sm font-medium">
-                        Page <span className="text-violet-600 mx-1 font-semibold">{pagination.page}</span> of{" "}
-                        <span className="text-violet-600 mx-1 font-semibold">{pagination.totalPages}</span>
+                      <div className="flex items-center justify-center text-sm font-medium dark:text-gray-300">
+                        Page <span className="text-violet-600 dark:text-violet-400 mx-1 font-semibold">{pagination.page}</span> of{" "}
+                        <span className="text-violet-600 dark:text-violet-400 mx-1 font-semibold">{pagination.totalPages}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <Button
                           variant="outline"
-                          className="h-8 w-8 p-0 border-slate-200 hover:bg-slate-50"
+                          className="h-8 w-8 p-0 border-slate-200 dark:border-gray-600 hover:bg-slate-50 dark:hover:bg-gray-700"
                           onClick={() => handlePageChange(1)}
                           disabled={pagination.page === 1}
                         >
                           <span className="sr-only">Go to first page</span>
-                          <ChevronsLeft className="text-violet-600" />
+                          <ChevronsLeft className="text-violet-600 dark:text-violet-400" />
                         </Button>
                         <Button
                           variant="outline"
-                          className="h-8 w-8 p-0 border-slate-200 hover:bg-slate-50"
+                          className="h-8 w-8 p-0 border-slate-200 dark:border-gray-600 hover:bg-slate-50 dark:hover:bg-gray-700"
                           onClick={() => handlePageChange(pagination.page - 1)}
                           disabled={pagination.page === 1}
                         >
                           <span className="sr-only">Go to previous page</span>
-                          <ChevronLeft className="text-violet-600" />
+                          <ChevronLeft className="text-violet-600 dark:text-violet-400" />
                         </Button>
                         <Button
                           variant="outline"
-                          className="h-8 w-8 p-0 border-slate-200 hover:bg-slate-50"
+                          className="h-8 w-8 p-0 border-slate-200 dark:border-gray-600 hover:bg-slate-50 dark:hover:bg-gray-700"
                           onClick={() => handlePageChange(pagination.page + 1)}
                           disabled={pagination.page >= pagination.totalPages}
                         >
                           <span className="sr-only">Go to next page</span>
-                          <ChevronRight className="text-violet-600" />
+                          <ChevronRight className="text-violet-600 dark:text-violet-400" />
                         </Button>
                         <Button
                           variant="outline"
-                          className="h-8 w-8 p-0 border-slate-200 hover:bg-slate-50"
+                          className="h-8 w-8 p-0 border-slate-200 dark:border-gray-600 hover:bg-slate-50 dark:hover:bg-gray-700"
                           onClick={() => handlePageChange(pagination.totalPages)}
                           disabled={pagination.page >= pagination.totalPages}
                         >
                           <span className="sr-only">Go to last page</span>
-                          <ChevronsRight className="text-violet-600" />
+                          <ChevronsRight className="text-violet-600 dark:text-violet-400" />
                         </Button>
                       </div>
                     </div>
@@ -695,47 +924,47 @@ export default function InquiriesPage() {
 
       {/* Read Inquiry Dialog */}
       <Dialog open={showReadDialog} onOpenChange={setShowReadDialog}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="w-full max-w-xs sm:max-w-2xl p-4 sm:p-6">
           <DialogHeader>
-            <DialogTitle className="text-xl">Inquiry Details</DialogTitle>
+            <DialogTitle className="text-lg sm:text-xl">Inquiry Details</DialogTitle>
           </DialogHeader>
           {selectedInquiry && (
-            <div className="space-y-6 py-4">
+            <div className="space-y-4 sm:space-y-6 py-2 sm:py-4">
               {/* Customer Information */}
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h3 className="font-semibold text-gray-900 mb-3">Customer Information</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-gray-50 dark:bg-gray-800 p-3 sm:p-4 rounded-lg">
+                <h3 className="font-semibold text-gray-900 dark:text-white mb-2 sm:mb-3 text-sm sm:text-base">Customer Information</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <div>
-                    <p className="text-sm text-gray-600">Full Name</p>
-                    <p className="font-medium">{selectedInquiry.fullName}</p>
+                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Full Name</p>
+                    <p className="font-medium text-sm sm:text-base dark:text-white">{selectedInquiry.fullName}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600">Email</p>
-                    <p className="font-medium">{selectedInquiry.email}</p>
+                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Email</p>
+                    <p className="font-medium text-sm sm:text-base break-all dark:text-white">{selectedInquiry.email}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600">Phone</p>
-                    <p className="font-medium">{selectedInquiry.phone}</p>
+                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Phone</p>
+                    <p className="font-medium text-sm sm:text-base dark:text-white">{selectedInquiry.phone}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600">Date Received</p>
-                    <p className="font-medium">{formatDate(selectedInquiry.createdAt)}</p>
+                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Date Received</p>
+                    <p className="font-medium text-sm sm:text-base dark:text-white">{formatDate(selectedInquiry.createdAt)}</p>
                   </div>
                 </div>
               </div>
 
               {/* Inquiry Details */}
               <div>
-                <h3 className="font-semibold text-gray-900 mb-3">Inquiry Details</h3>
-                <div className="space-y-4">
+                <h3 className="font-semibold text-gray-900 dark:text-white mb-2 sm:mb-3 text-sm sm:text-base">Inquiry Details</h3>
+                <div className="space-y-3 sm:space-y-4">
                   <div>
-                    <p className="text-sm text-gray-600 mb-1">Subject</p>
-                    <p className="font-medium text-lg">{selectedInquiry.subject}</p>
+                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-1">Subject</p>
+                    <p className="font-medium text-base sm:text-lg dark:text-white">{selectedInquiry.subject}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600 mb-1">Message</p>
-                    <div className="bg-white border rounded-lg p-4">
-                      <p className="text-gray-900 leading-relaxed whitespace-pre-wrap">
+                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-1">Message</p>
+                    <div className="bg-white dark:bg-gray-900 border dark:border-gray-700 rounded-lg p-3 sm:p-4">
+                      <p className="text-gray-900 dark:text-gray-100 leading-relaxed whitespace-pre-wrap text-sm sm:text-base">
                         {selectedInquiry.message}
                       </p>
                     </div>
@@ -745,23 +974,23 @@ export default function InquiriesPage() {
 
               {/* Archive Information (if archived) */}
               {selectedInquiry.isArchived && (
-                <div className="bg-orange-50 p-4 rounded-lg border-l-4 border-orange-400">
-                  <h3 className="font-semibold text-orange-900 mb-2">Archive Information</h3>
+                <div className="bg-orange-50 dark:bg-orange-900/20 p-3 sm:p-4 rounded-lg border-l-4 border-orange-400 dark:border-orange-500">
+                  <h3 className="font-semibold text-orange-900 dark:text-orange-300 mb-2 text-sm sm:text-base">Archive Information</h3>
                   <div className="space-y-2">
                     <div>
-                      <p className="text-sm text-orange-700">Reason:</p>
-                      <p className="text-orange-900">{selectedInquiry.archiveReason || 'No reason provided'}</p>
+                      <p className="text-xs sm:text-sm text-orange-700 dark:text-orange-400">Reason:</p>
+                      <p className="text-orange-900 dark:text-orange-200 text-sm">{selectedInquiry.archiveReason || 'No reason provided'}</p>
                     </div>
                     {selectedInquiry.archivedAt && (
                       <div>
-                        <p className="text-sm text-orange-700">Archived on:</p>
-                        <p className="text-orange-900">{formatDate(selectedInquiry.archivedAt)}</p>
+                        <p className="text-xs sm:text-sm text-orange-700 dark:text-orange-400">Archived on:</p>
+                        <p className="text-orange-900 dark:text-orange-200 text-sm">{formatDate(selectedInquiry.archivedAt)}</p>
                       </div>
                     )}
                     {selectedInquiry.archivedBy && (
                       <div>
-                        <p className="text-sm text-orange-700">Archived by:</p>
-                        <p className="text-orange-900">{selectedInquiry.archivedBy}</p>
+                        <p className="text-xs sm:text-sm text-orange-700 dark:text-orange-400">Archived by:</p>
+                        <p className="text-orange-900 dark:text-orange-200 text-sm">{selectedInquiry.archivedBy}</p>
                       </div>
                     )}
                   </div>
@@ -769,22 +998,22 @@ export default function InquiriesPage() {
               )}
 
               {/* Status and Actions */}
-              <div className="flex items-center justify-between pt-4 border-t">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-600">Status:</span>
-                  <Badge variant={getStatusBadgeVariant(selectedInquiry.status)}>
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pt-3 sm:pt-4 border-t dark:border-gray-700 gap-3 sm:gap-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Status:</span>
+                  <Badge variant={getStatusBadgeVariant(selectedInquiry.status)} className="text-xs">
                     {selectedInquiry.status}
                   </Badge>
                   {selectedInquiry.isArchived && (
-                    <Badge variant="secondary">Archived</Badge>
+                    <Badge variant="secondary" className="text-xs">Archived</Badge>
                   )}
                 </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" onClick={() => setShowReadDialog(false)}>
+                <div className="flex gap-2 w-full sm:w-auto">
+                  <Button variant="outline" onClick={() => setShowReadDialog(false)} className="flex-1 sm:flex-none text-xs sm:text-sm">
                     Close
                   </Button>
                   <Button 
-                    className="bg-violet-600 hover:bg-violet-700"
+                    className="bg-violet-600 hover:bg-violet-700 flex-1 sm:flex-none text-xs sm:text-sm"
                     onClick={() => handleReplyInquiry(selectedInquiry)}
                   >
                     Reply

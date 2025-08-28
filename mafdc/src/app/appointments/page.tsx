@@ -14,7 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { useAppointments } from '@/hooks/appointments/appointmentHooks';
-import { AppointmentNotes } from '@/interface/appointment';
+import { AppointmentNotes, AppointmentEvent } from '@/interface/appointment';
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -93,7 +93,13 @@ export default function AppointmentsPage() {
   } | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [isRescheduling, setIsRescheduling] = useState(false);
-  const [view, setView] = useState<CalendarView>('week');
+  const [view, setView] = useState<CalendarView>(() => {
+    // Default to 'day' view on mobile, 'week' on desktop
+    if (typeof window !== 'undefined') {
+      return window.innerWidth < 1024 ? 'day' : 'week';
+    }
+    return 'week';
+  });
   const [date, setDate] = useState(new Date());
   const [showNotesModal, setShowNotesModal] = useState(false);
   const [appointmentNotes, setAppointmentNotes] = useState<AppointmentNotes>({
@@ -124,30 +130,34 @@ export default function AppointmentsPage() {
         startTime: string;
         endTime: string;
         status: string;
-        patient: {
+        patient?: {
           firstName: string;
           middleName?: string;
           lastName: string;
-        };
+        } | null;
       }) => {
         // Parse the ISO date string
         const appointmentDate = new Date(apt.date);
-        
-        // Get the date part in YYYY-MM-DD format
         const dateStr = format(appointmentDate, 'yyyy-MM-dd');
-        
         // Create start and end dates by combining date and time
         const start = new Date(`${dateStr}T${apt.startTime}`);
         const end = new Date(`${dateStr}T${apt.endTime}`);
 
+        const hasPatient = !!apt.patient;
+        const safePatient = apt.patient || { firstName: 'Unknown', lastName: 'Patient' } as {
+          firstName: string;
+          middleName?: string;
+          lastName: string;
+        };
+
         return {
           id: apt._id,
-          title: `${apt.title} - ${apt.patient.firstName} ${apt.patient.lastName}`,
+          title: hasPatient ? `${apt.title} - ${safePatient.firstName} ${safePatient.lastName}` : apt.title,
           start,
           end,
           allDay: false,
           status: apt.status,
-          patient: apt.patient,
+          patient: hasPatient ? safePatient : { firstName: 'Unknown', lastName: 'Patient' },
           date: dateStr,
           startTime: apt.startTime,
           endTime: apt.endTime
@@ -174,25 +184,32 @@ export default function AppointmentsPage() {
           startTime: string;
           endTime: string;
           status: string;
-          patient: {
+          patient?: {
             firstName: string;
             middleName?: string;
             lastName: string;
-          };
+          } | null;
         }) => {
           const appointmentDate = new Date(apt.date);
           const dateStr = format(appointmentDate, 'yyyy-MM-dd');
           const start = new Date(`${dateStr}T${apt.startTime}`);
           const end = new Date(`${dateStr}T${apt.endTime}`);
 
+          const hasPatient = !!apt.patient;
+          const safePatient = apt.patient || { firstName: 'Unknown', lastName: 'Patient' } as {
+            firstName: string;
+            middleName?: string;
+            lastName: string;
+          };
+
           return {
             id: apt._id,
-            title: `${apt.title} - ${apt.patient.firstName} ${apt.patient.lastName}`,
+            title: hasPatient ? `${apt.title} - ${safePatient.firstName} ${safePatient.lastName}` : apt.title,
             start,
             end,
             allDay: false,
             status: apt.status,
-            patient: apt.patient,
+            patient: hasPatient ? safePatient : { firstName: 'Unknown', lastName: 'Patient' },
             date: dateStr,
             startTime: apt.startTime,
             endTime: apt.endTime
@@ -229,6 +246,20 @@ export default function AppointmentsPage() {
       setArchivedEvents([]);
     };
   }, [loadData]); // Now we only depend on the memoized loadData function
+
+  // Handle view changes based on screen size
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 1024 && view !== 'day') {
+        setView('day');
+      } else if (window.innerWidth >= 1024 && view === 'day') {
+        setView('week');
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [view]);
 
   // Add new appointment
   const handleCreateAppointment = async () => {
@@ -292,6 +323,9 @@ export default function AppointmentsPage() {
   const handleUpdateAppointment = async () => {
     if (!selectedAppointment) return;
 
+    console.log('Starting appointment update for ID:', selectedAppointment.id);
+    console.log('Selected appointment:', selectedAppointment);
+
     try {
       if (isRescheduling) {
         // Handle rescheduling
@@ -309,40 +343,22 @@ export default function AppointmentsPage() {
         toast.success('Appointment rescheduled successfully and email notification sent to patient');
       } else {
         // Handle regular updates
-      const updateData: {
-        date?: string;
-        startTime?: string;
-        endTime?: string;
-        status?: 'Scheduled' | 'Finished' | 'Rescheduled' | 'Cancelled';
-        title?: string;
-      } = {};
+        const updateData: {
+          date?: string;
+          startTime?: string;
+          endTime?: string;
+          status?: 'Scheduled' | 'Finished' | 'Rescheduled' | 'Cancelled';
+          title?: string;
+        } = {};
 
-      // Check if date has changed
-      if (selectedAppointment.date) {
-        updateData.date = format(selectedAppointment.start, 'yyyy-MM-dd');
-      }
-
-      // Check if time has changed
-      if (selectedAppointment.startTime) {
-        updateData.startTime = format(selectedAppointment.start, 'HH:mm');
-      }
-
-      if (selectedAppointment.endTime) {
-        updateData.endTime = format(selectedAppointment.end, 'HH:mm');
-      }
-
-      // Check if status has changed
-      if (selectedAppointment.status) {
+        // Only include the status change, not the date/time (which would trigger availability check)
         updateData.status = selectedAppointment.status as 'Scheduled' | 'Finished' | 'Rescheduled' | 'Cancelled';
-      }
-
-      // Check if title has changed
-      if (selectedAppointment.title) {
         updateData.title = selectedAppointment.title;
-      }
 
-      // Use updateAppointment for comprehensive updates including status
-      await updateAppointment(selectedAppointment.id, updateData);
+        console.log('Updating appointment with data:', updateData);
+
+        // Use updateAppointment for comprehensive updates including status
+        await updateAppointment(selectedAppointment.id, updateData);
 
       setShowEditModal(false);
       fetchAppointments();
@@ -454,20 +470,23 @@ export default function AppointmentsPage() {
     setShowAppointmentModal(true);
   };
   
-  // Get today's appointments
+  // Get today's appointments (filter out appointments outside business hours)
   const todaysAppointments = useMemo(() => {
     return events.filter(event => 
       event.start instanceof Date && 
-      isToday(event.start)
+      isToday(event.start) &&
+      isWithinBusinessHours(event.start) // Only show appointments within business hours
     );
   }, [events]);
 
-  // Get all appointments for the current month
+  // Get all appointments for the current month (filter out appointments outside business hours)
   const monthAppointments = useMemo(() => {
     const month = date.getMonth();
     const year = date.getFullYear();
     return events.filter(event => {
-      return event.start.getMonth() === month && event.start.getFullYear() === year;
+      return event.start.getMonth() === month && 
+             event.start.getFullYear() === year &&
+             isWithinBusinessHours(event.start); // Only show appointments within business hours
     });
   }, [events, date]);
 
@@ -491,20 +510,24 @@ export default function AppointmentsPage() {
   const endOfMonth = (d: Date) => new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999);
 
   const visibleEvents = useMemo(() => {
+    let filteredEvents;
     if (view === 'day') {
       const start = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0);
       const end = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999);
-      return events.filter(e => e.start >= start && e.start <= end);
-    }
-    if (view === 'week') {
+      filteredEvents = events.filter(e => e.start >= start && e.start <= end);
+    } else if (view === 'week') {
       const start = startOfWeekMonday(date);
       const end = endOfWeekMonday(date);
-      return events.filter(e => e.start >= start && e.start <= end);
+      filteredEvents = events.filter(e => e.start >= start && e.start <= end);
+    } else {
+      const start = startOfMonth(date);
+      const end = endOfMonth(date);
+      filteredEvents = events.filter(e => e.start >= start && e.start <= end);
     }
-    const start = startOfMonth(date);
-    const end = endOfMonth(date);
-    return events.filter(e => e.start >= start && e.start <= end);
-  }, [events, date, view]);
+    
+    // Filter out appointments outside business hours
+    return filteredEvents.filter(e => isWithinBusinessHours(e.start));
+  }, [events, date, view, startOfWeekMonday, endOfWeekMonday, startOfMonth, endOfMonth]);
 
   const navigate = (action: 'PREV' | 'NEXT' | 'TODAY') => {
     let newDate = new Date(date);
@@ -731,7 +754,7 @@ export default function AppointmentsPage() {
                         onSlotClick={(start, end) => handleSelectSlot({ start, end })}
                         onEventClick={(ev) => {
                           const found = visibleEvents.find(e => e.id === ev.id) || events.find(e => e.id === ev.id);
-                          if (found) handleSelectEvent(found as any);
+                          if (found) handleSelectEvent(found as AppointmentEvent);
                         }}
                       />
                     ) : (

@@ -146,38 +146,38 @@ interface TableMeta {
 }
 
 // Add this before the columns definition
-function ActionsCell({ row, onUpdate, onArchive, onHardDelete }: { 
-  row: Row<z.infer<typeof schema>>, 
+function ActionsCell({ row, onUpdate, onArchive, onHardDelete }: {
+  row: Row<z.infer<typeof schema>>,
   onUpdate?: (patient: z.infer<typeof schema>) => void,
   onArchive?: (patientId: string, isActive: boolean) => void,
   onHardDelete?: (patientId: string, patientName: string) => void
 }) {
   const router = useRouter();
   const [isNavigating, setIsNavigating] = useState(false);
-  
+
   const handleViewProfile = () => {
     if (isNavigating) return;
-    
+
     const patientId = row.original._id;
     if (!patientId) {
       toast.error('Invalid patient ID');
       return;
     }
-    
+
     setIsNavigating(true);
     router.push(`/patients/${patientId}`);
   };
-  
+
   const handleUpdate = () => {
     if (onUpdate) {
       onUpdate(row.original);
     }
   };
-  
+
   const handleArchive = () => {
     const isActive = row.original.isActive;
     const actionText = isActive ? "Archive" : "Restore";
-    
+
     toast.message(`${actionText} ${row.original.firstName} ${row.original.lastName}?`, {
       action: {
         label: actionText,
@@ -185,7 +185,7 @@ function ActionsCell({ row, onUpdate, onArchive, onHardDelete }: {
       },
       cancel: {
         label: 'Cancel',
-        onClick: () => {}
+        onClick: () => { }
       }
     });
   };
@@ -196,7 +196,7 @@ function ActionsCell({ row, onUpdate, onArchive, onHardDelete }: {
       onHardDelete(row.original._id, patientName);
     }
   };
-  
+
   return (
     <div className="tour-actions-menu">
       <DropdownMenu>
@@ -206,37 +206,37 @@ function ActionsCell({ row, onUpdate, onArchive, onHardDelete }: {
             <span className="sr-only">Open menu</span>
           </Button>
         </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={handleViewProfile} disabled={isNavigating}>
-          <IconEye className="mr-2 h-4 w-4" />
-          {isNavigating ? 'Loading...' : 'See Profile'}
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={handleUpdate}>
-          <IconPencil className="mr-2 h-4 w-4" />
-          Update
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem 
-          onClick={handleArchive} 
-          className={row.original.isActive ? "text-red-600" : "text-green-600"}
-        >
-          <IconArchive className="mr-2 h-4 w-4" />
-          {row.original.isActive ? "Archive Patient" : "Restore Patient"}
-        </DropdownMenuItem>
-        {/* Hard Delete - Only show for archived patients */}
-        {!row.original.isActive && onHardDelete && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem 
-              onClick={handleHardDelete}
-              className="text-red-800 focus:text-red-900 focus:bg-red-50"
-            >
-              <IconTrash className="mr-2 h-4 w-4" />
-              Delete Permanently
-            </DropdownMenuItem>
-          </>
-        )}
-      </DropdownMenuContent>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={handleViewProfile} disabled={isNavigating}>
+            <IconEye className="mr-2 h-4 w-4" />
+            {isNavigating ? 'Loading...' : 'See Profile'}
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={handleUpdate}>
+            <IconPencil className="mr-2 h-4 w-4" />
+            Update
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onClick={handleArchive}
+            className={row.original.isActive ? "text-red-600" : "text-green-600"}
+          >
+            <IconArchive className="mr-2 h-4 w-4" />
+            {row.original.isActive ? "Archive Patient" : "Restore Patient"}
+          </DropdownMenuItem>
+          {/* Hard Delete - Only show for archived patients */}
+          {!row.original.isActive && onHardDelete && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={handleHardDelete}
+                className="text-red-800 focus:text-red-900 focus:bg-red-50"
+              >
+                <IconTrash className="mr-2 h-4 w-4" />
+                Delete Permanently
+              </DropdownMenuItem>
+            </>
+          )}
+        </DropdownMenuContent>
       </DropdownMenu>
     </div>
   );
@@ -280,7 +280,7 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
     accessorKey: "firstName",
     header: "First Name",
     cell: ({ row }) => {
-      return <div className="text-violet-700">{row.original.firstName}</div>
+      return <div className="text-violet-700 dark:text-white">{row.original.firstName}</div>
     },
     enableHiding: false,
     size: 120,
@@ -289,7 +289,7 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
     accessorKey: "lastName",
     header: "Last Name",
     cell: ({ row }) => {
-      return <div className="text-violet-700">{row.original.lastName}</div>
+      return <div className="text-violet-700 dark:text-white">{row.original.lastName}</div>
     },
     enableHiding: false,
     size: 120,
@@ -306,9 +306,9 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
     accessorKey: "gender",
     header: "Gender",
     cell: ({ row }) => (
-        <Badge variant="outline" className="text-violet-600 border-violet-200 px-1.5">
+      <Badge variant="outline" className="text-violet-600 border-violet-200 px-1.5">
         {row.original.gender}
-        </Badge>
+      </Badge>
     ),
     size: 100,
   },
@@ -327,10 +327,10 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
       const activeCases = row.original.cases?.filter(c => c.status === 'Active') || [];
       const completedCases = row.original.cases?.filter(c => c.status === 'Completed') || [];
       const cancelledCases = row.original.cases?.filter(c => c.status === 'Cancelled') || [];
-      
+
       let statusText = "No Cases";
       let statusColor = "text-gray-600 border-gray-200";
-      
+
       if (activeCases.length > 0) {
         statusText = `${activeCases.length} Active`;
         statusColor = "text-green-600 border-green-200 bg-green-50";
@@ -341,7 +341,7 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
         statusText = "Has Cancelled";
         statusColor = "text-orange-600 border-orange-200 bg-orange-50";
       }
-      
+
       return (
         <Badge variant="outline" className={`px-1.5 ${statusColor}`}>
           {statusText}
@@ -354,13 +354,12 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
     accessorKey: "patientStatus",
     header: "Patient Status",
     cell: ({ row }) => (
-      <Badge 
-        variant="outline" 
-        className={`px-1.5 ${
-          row.original.isActive 
-            ? "text-violet-600 border-violet-200" 
+      <Badge
+        variant="outline"
+        className={`px-1.5 ${row.original.isActive
+            ? "text-violet-600 border-violet-200"
             : "text-red-600 border-red-200 bg-red-50"
-        }`}
+          }`}
       >
         {row.original.isActive ? (
           <IconCircleCheckFilled className="fill-violet-500 dark:fill-violet-400 mr-1" />
@@ -415,11 +414,11 @@ export function DataTable({
     pageIndex: 0,
     pageSize: 10,
   })
-  
+
   // Update dialog state
   const [updateDialogOpen, setUpdateDialogOpen] = React.useState(false)
   const [selectedPatient, setSelectedPatient] = React.useState<z.infer<typeof schema> | null>(null)
-  
+
   // Archive dialog state
   const [archiveDialogOpen, setArchiveDialogOpen] = React.useState(false)
   const [archiveAction, setArchiveAction] = React.useState<{
@@ -429,19 +428,19 @@ export function DataTable({
     patientIds?: string[];
     patientName?: string;
   } | null>(null)
-  
+
   // Hard delete dialog state
   const [hardDeleteDialogOpen, setHardDeleteDialogOpen] = React.useState(false)
   const [hardDeletePatientData, setHardDeletePatientData] = React.useState<{
     id: string;
     name: string;
   } | null>(null)
-  
+
   // Use external pagination if provided, otherwise fall back to internal
   const currentPage = externalPagination ? externalPagination.page - 1 : internalPagination.pageIndex;
   const pageSize = externalPagination ? externalPagination.limit : internalPagination.pageSize;
   const totalPages = externalPagination ? externalPagination.totalPages : Math.ceil(data.length / pageSize);
-  
+
   const sortableId = React.useId()
   const sensors = useSensors(
     useSensor(MouseSensor, {}),
@@ -451,17 +450,17 @@ export function DataTable({
 
   const { getPatients, archivePatient, restorePatient, archiveMultiplePatients, restoreMultiplePatients, hardDeletePatient, loading } = usePatients();
   const [patients, setPatients] = useState<z.infer<typeof schema>[]>([]);
-  
+
   // Patient management functions
   const handleUpdatePatient = (patient: z.infer<typeof schema>) => {
     setSelectedPatient(patient);
     setUpdateDialogOpen(true);
   };
-  
+
   const handleArchivePatient = async (patientId: string, newIsActive: boolean) => {
     const patient = data.find(p => p._id === patientId);
     const patientName = patient ? `${patient.firstName} ${patient.lastName}` : undefined;
-    
+
     setArchiveAction({
       type: 'single',
       isArchiving: !newIsActive,
@@ -470,16 +469,16 @@ export function DataTable({
     });
     setArchiveDialogOpen(true);
   };
-  
+
   const handleMultipleArchive = async (isArchive: boolean) => {
     const selectedRows = table.getFilteredSelectedRowModel().rows;
     const patientIds = selectedRows.map(row => row.original._id);
-    
+
     if (patientIds.length === 0) {
       toast.error('Please select patients to archive/restore');
       return;
     }
-    
+
     setArchiveAction({
       type: 'multiple',
       isArchiving: isArchive,
@@ -506,7 +505,7 @@ export function DataTable({
         }
         setRowSelection({}); // Clear selection after bulk operation
       }
-      
+
       // Refresh data
       if (onPageChange) {
         onPageChange(currentPage + 1, pageSize);
@@ -534,7 +533,7 @@ export function DataTable({
 
     try {
       await hardDeletePatient(hardDeletePatientData.id);
-      
+
       // Refresh data
       if (onPageChange) {
         onPageChange(currentPage + 1, pageSize);
@@ -617,7 +616,7 @@ export function DataTable({
     onColumnVisibilityChange: setColumnVisibility,
     onPaginationChange: (updater) => {
       if (externalPagination && onPageChange) {
-        const newPagination = typeof updater === 'function' 
+        const newPagination = typeof updater === 'function'
           ? updater({ pageIndex: currentPage, pageSize: pageSize })
           : updater;
         onPageChange(newPagination.pageIndex + 1, newPagination.pageSize);
@@ -647,81 +646,98 @@ export function DataTable({
   }
 
   return (
-    <div className="w-full flex-col justify-start gap-6">
-      <div className="flex items-center justify-between px-4 lg:px-6">
+    <div className="w-full flex-col justify-start gap-6" style={{ minHeight: '600px' }}>
+      <div className="flex items-center justify-between px-4 lg:px-6 gap-4 flex-wrap">
         <div className="flex items-center gap-2">
           {onShowArchivedChange && (
-            <div id="tour-archive-toggle" className="flex items-center gap-2">
-              <Toggle
-                pressed={showArchived}
-                onPressedChange={onShowArchivedChange}
-                variant="outline"
-                size="sm"
-                className="border-slate-200 hover:bg-slate-50 data-[state=on]:bg-red-100 data-[state=on]:text-red-700 data-[state=on]:border-red-200"
-              >
+            <Toggle
+              pressed={showArchived}
+              onPressedChange={onShowArchivedChange}
+              variant="outline"
+              size="sm"
+              className="border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 data-[state=on]:bg-red-100 dark:data-[state=on]:bg-red-900/30 data-[state=on]:text-red-700 dark:data-[state=on]:text-red-400 data-[state=on]:border-red-200 dark:data-[state=on]:border-red-800 text-xs sm:text-sm"
+            >
+              <span className="hidden sm:inline">
                 {showArchived ? "Show Active Patients" : "Show Archived Patients"}
-              </Toggle>
-            </div>
-          )}
-        </div>
-        <div className="flex items-center gap-2 ml-auto">
-          {/* Bulk Actions */}
-          {table.getFilteredSelectedRowModel().rows.length > 0 && (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleMultipleArchive(!showArchived)}
-                className="border-slate-200 hover:bg-slate-50"
-              >
-                <IconArchive className="text-violet-600 mr-1" />
-                {showArchived ? "Restore" : "Archive"} Selected ({table.getFilteredSelectedRowModel().rows.length})
-              </Button>
-            </>
+              </span>
+              <span className="sm:hidden">
+                {showArchived ? "Active" : "Archived"}
+              </span>
+            </Toggle>
           )}
           
-          <div id="tour-customize-columns">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="border-slate-200 hover:bg-slate-50">
-                  <IconLayoutColumns className="text-violet-600 mr-1" />
-                  <span className="hidden lg:inline">Customize Columns</span>
-                  <span className="lg:hidden">Columns</span>
-                  <IconChevronDown className="ml-1 text-slate-400" />
-                </Button>
-              </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56 border border-slate-200">
-              {table
-                .getAllColumns()
-                .filter(
-                  (column) =>
-                    typeof column.accessorFn !== "undefined" &&
-                    column.getCanHide()
+        </div>
+        <div className="flex items-center gap-2">
+                  {/* Mobile: Show Archive button when items selected, or nothing when no selection */}
+        {table.getFilteredSelectedRowModel().rows.length > 0 && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleMultipleArchive(!showArchived)}
+            className="border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs sm:text-sm whitespace-nowrap min-w-fit lg:hidden"
+          >
+            <IconArchive className="text-violet-600 mr-1 h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+            <span className="hidden sm:inline">{showArchived ? "Restore" : "Archive"} Selected</span>
+            <span className="sm:hidden">{showArchived ? "Restore" : "Archive"}</span>
+            <span className="ml-1">({table.getFilteredSelectedRowModel().rows.length})</span>
+          </Button>
+        )}
+        
+        {/* Desktop: Show Archive when items selected */}
+        {table.getFilteredSelectedRowModel().rows.length > 0 && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleMultipleArchive(!showArchived)}
+            className="border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs sm:text-sm whitespace-nowrap min-w-fit hidden lg:flex"
+          >
+            <IconArchive className="text-violet-600 mr-1 h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+            <span className="hidden sm:inline">{showArchived ? "Restore" : "Archive"} Selected</span>
+            <span className="sm:hidden">{showArchived ? "Restore" : "Archive"}</span>
+            <span className="ml-1">({table.getFilteredSelectedRowModel().rows.length})</span>
+          </Button>
+        )}
+        
+        {/* Desktop: Always show Columns */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs sm:text-sm min-w-fit hidden lg:flex">
+              <IconLayoutColumns className="text-violet-600 mr-1 h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+              <span className="hidden lg:inline">Customize Columns</span>
+              <span className="lg:hidden">Columns</span>
+              <IconChevronDown className="ml-1 text-slate-400 h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+            {table
+              .getAllColumns()
+              .filter(
+                (column) =>
+                  typeof column.accessorFn !== "undefined" &&
+                  column.getCanHide()
+              )
+              .map((column) => {
+                return (
+                  <DropdownMenuCheckboxItem
+                    key={column.id}
+                    className="capitalize hover:bg-slate-50 dark:hover:bg-slate-700"
+                    checked={column.getIsVisible()}
+                    onCheckedChange={(value) =>
+                      column.toggleVisibility(!!value)
+                    }
+                  >
+                    {column.id}
+                  </DropdownMenuCheckboxItem>
                 )
-                .map((column) => {
-                  return (
-                    <DropdownMenuCheckboxItem
-                      key={column.id}
-                      className="capitalize hover:bg-slate-50"
-                      checked={column.getIsVisible()}
-                      onCheckedChange={(value) =>
-                        column.toggleVisibility(!!value)
-                      }
-                    >
-                      {column.id}
-                    </DropdownMenuCheckboxItem>
-                  )
-                })}
-                          </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-          <div id="tour-add-patient">
-            <AddPatientDialog onPatientAdded={onPageChange ? () => onPageChange(1, pageSize) : fetchPatients} />
-          </div>
+              })}
+          </DropdownMenuContent>
+        </DropdownMenu>
+          <AddPatientDialog onPatientAdded={onPageChange ? () => onPageChange(1, pageSize) : fetchPatients} />
         </div>
       </div>
+
       <div className="relative flex flex-col gap-4 overflow-auto px-4 lg:px-6 mt-6">
-        <div className="overflow-hidden rounded-lg border border-slate-200 shadow-sm">
+        <div className="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm min-h-[400px] bg-sidebar">
           <DndContext
             collisionDetection={closestCenter}
             modifiers={[restrictToVerticalAxis]}
@@ -729,15 +745,16 @@ export function DataTable({
             sensors={sensors}
             id={sortableId}
           >
-            <Table className="border-collapse min-w-full text-xs md:text-sm">
+            <Table className="border-collapse min-w-full text-xs md:text-sm text-slate-900 dark:text-white">
               <TableHeader className="bg-zinc-800 text-white border-b border-zinc-700/50">
                 <TableRow>
                   {/* Mobile: Name, Number, and Actions header in a single row */}
-                  <TableHead colSpan={3} className="block md:hidden p-2 text-white align-middle">
+                  <TableHead colSpan={table.getAllColumns().length} className="block md:hidden p-2 text-white align-middle">
                     <div className="flex flex-row items-center justify-between w-full">
-                      <span className="font-semibold w-1/3 text-left">Name</span>
-                      <span className="font-semibold w-1/3 text-center">Number</span>
-                      <span className="font-semibold w-1/3 text-right">Actions</span>
+                      <span className="font-semibold mr-2">Select</span>
+                      <span className="font-semibold flex-1 text-left">Name</span>
+                      <span className="font-semibold flex-1 text-center">Number</span>
+                      <span className="font-semibold text-right">Actions</span>
                     </div>
                   </TableHead>
                   {/* Desktop: Show all headers */}
@@ -747,28 +764,37 @@ export function DataTable({
                         {header.isPlaceholder
                           ? null
                           : flexRender(
-                              header.column.columnDef.header,
-                              header.getContext()
-                            )}
+                            header.column.columnDef.header,
+                            header.getContext()
+                          )}
                       </TableHead>
                     ))
                   )}
                 </TableRow>
               </TableHeader>
-              <TableBody>
+              <TableBody className="min-h-[300px]">
                 {table.getRowModel().rows.length ? (
                   table.getRowModel().rows.map((row) => (
-                    <TableRow key={row.id}>
+                    <TableRow key={row.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
                       {/* Mobile: Name, Number, and Actions in a single row */}
-                      <TableCell colSpan={3} className="block md:hidden p-2 align-middle">
+                      <TableCell colSpan={table.getAllColumns().length} className="block md:hidden p-2 align-middle text-slate-900 dark:text-white">
                         <div className="flex flex-row items-center justify-between w-full">
-                          <span className="w-1/3 text-violet-700 font-medium whitespace-normal break-words text-left">
+                          {/* Checkbox for mobile selection */}
+                          <div className="flex items-center mr-2">
+                            {(() => {
+                              const cell = row.getVisibleCells().find(cell => cell.column.id === 'select');
+                              return cell
+                                ? flexRender(cell.column.columnDef.cell, cell.getContext())
+                                : null;
+                            })()}
+                          </div>
+                          <span className="flex-1 text-violet-700 dark:text-white font-medium whitespace-normal break-words text-left">
                             {row.original.firstName} {row.original.lastName}
                           </span>
-                          <span className="w-1/3 text-xs text-gray-500 text-center">
+                          <span className="flex-1 text-xs text-gray-500 text-center">
                             {row.original.contactNumber}
                           </span>
-                          <span className="w-1/3 flex justify-end">
+                          <span className="flex justify-end">
                             {(() => {
                               const cell = row.getVisibleCells().find(cell => cell.column.id === 'actions');
                               return cell
@@ -780,7 +806,7 @@ export function DataTable({
                       </TableCell>
                       {/* Desktop: Show all cells */}
                       {row.getVisibleCells().map((cell) => (
-                        <TableCell key={cell.id} className="hidden md:table-cell border-b border-slate-200 p-4">
+                        <TableCell key={cell.id} className="hidden md:table-cell border-b border-slate-200 dark:border-slate-700 p-4 text-slate-900 dark:text-white">
                           {flexRender(cell.column.columnDef.cell, cell.getContext())}
                         </TableCell>
                       ))}
@@ -798,7 +824,7 @@ export function DataTable({
           </DndContext>
         </div>
         <div className="flex items-center justify-between px-4">
-          <div className="text-slate-500 hidden flex-1 text-sm lg:flex">
+          <div className="text-slate-500 flex-1 text-sm">
             <span className="font-medium">{table.getFilteredSelectedRowModel().rows.length}</span> of{" "}
             <span className="font-medium">{table.getFilteredRowModel().rows.length}</span> row(s) selected.
           </div>
@@ -823,8 +849,8 @@ export function DataTable({
                 </SelectTrigger>
                 <SelectContent side="top">
                   {[10, 20, 30, 40, 50].map((size) => (
-                    <div 
-                      key={size} 
+                    <div
+                      key={size}
                       className="hover:bg-violet-50/20 cursor-pointer px-2 py-1.5 text-sm"
                       onClick={() => {
                         if (externalPagination && onPageChange) {
@@ -917,7 +943,7 @@ export function DataTable({
           </div>
         </div>
       </div>
-      
+
       {/* Update Patient Dialog */}
       {selectedPatient && (
         <UpdatePatientDialog

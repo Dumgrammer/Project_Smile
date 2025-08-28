@@ -24,7 +24,8 @@ export default function PatientsList() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const { getPatients, loading: patientsLoading } = usePatients();
-  const [patients, setPatients] = useState<z.infer<typeof schema>[]>([]);
+  const [allPatients, setAllPatients] = useState<z.infer<typeof schema>[]>([]);
+  const [filteredPatients, setFilteredPatients] = useState<z.infer<typeof schema>[]>([]);
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 10,
@@ -36,16 +37,17 @@ export default function PatientsList() {
   const [refreshing, setRefreshing] = useState(false);
   const [filters, setFilters] = useState({
     search: '',
-    gender: '',
-    ageRange: '',
-    status: ''
+    gender: 'all',
+    ageRange: 'all',
+    status: 'all'
   });
 
-  // Memoize the fetchPatients function
+    // Memoize the fetchPatients function
   const fetchPatients = useCallback(async (page = 1, limit = 10, showArchived = false) => {
     try {
-      const response = await getPatients(page, limit, filters.search, showArchived);
-      setPatients(response.patients);
+      const response = await getPatients(page, limit, '', showArchived);
+      setAllPatients(response.patients);
+      setFilteredPatients(response.patients);
       setPagination({
         page: response.currentPage,
         limit: limit,
@@ -55,7 +57,58 @@ export default function PatientsList() {
     } catch (error) {
       console.error('Error fetching patients:', error);
     }
-  }, [getPatients, filters.search]);
+  }, [getPatients]);
+
+  // Client-side filtering function
+  const applyFilters = useCallback(() => {
+    let filtered = [...allPatients];
+    
+    // Search filter
+    if (filters.search) {
+      const searchTerm = filters.search.toLowerCase();
+      filtered = filtered.filter(patient => 
+        patient.firstName.toLowerCase().includes(searchTerm) ||
+        patient.lastName.toLowerCase().includes(searchTerm) ||
+        patient.contactNumber.includes(searchTerm) ||
+        (patient.email && patient.email.toLowerCase().includes(searchTerm))
+      );
+    }
+    
+    // Gender filter
+    if (filters.gender !== 'all') {
+      filtered = filtered.filter(patient => patient.gender === filters.gender);
+    }
+    
+    // Age range filter
+    if (filters.ageRange !== 'all') {
+      filtered = filtered.filter(patient => {
+        const age = patient.age;
+        switch (filters.ageRange) {
+          case '0-18': return age >= 0 && age <= 18;
+          case '19-30': return age >= 19 && age <= 30;
+          case '31-50': return age >= 31 && age <= 50;
+          case '51+': return age >= 51;
+          default: return true;
+        }
+      });
+    }
+    
+    // Status filter
+    if (filters.status !== 'all') {
+      filtered = filtered.filter(patient => {
+        if (filters.status === 'active') return patient.isActive;
+        if (filters.status === 'archived') return !patient.isActive;
+        return true;
+      });
+    }
+    
+    setFilteredPatients(filtered);
+  }, [allPatients, filters]);
+
+  // Apply filters whenever filters change
+  useEffect(() => {
+    applyFilters();
+  }, [applyFilters]);
 
   useEffect(() => {
     // Check if logged in
@@ -85,6 +138,10 @@ export default function PatientsList() {
       ...prev, 
       [key]: value
     }));
+  };
+
+  const handleSearchChange = (value: string) => {
+    handleFilterChange('search', value);
   };
 
   const handleRefresh = async () => {
@@ -158,53 +215,53 @@ export default function PatientsList() {
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                           <div>
                             <Label htmlFor="search-filter">Search</Label>
-                            <Input
-                              id="search-filter"
-                              placeholder="Search by name, email, or phone..."
-                              value={filters.search}
-                              onChange={(e) => handleFilterChange('search', e.target.value)}
-                            />
+                                                         <Input
+                               id="search-filter"
+                               placeholder="Search by name, email, or phone..."
+                               defaultValue={filters.search}
+                               onChange={(e) => handleSearchChange(e.target.value)}
+                             />
                           </div>
                           <div>
                             <Label htmlFor="gender-filter">Gender</Label>
-                            <Select value={filters.gender} onValueChange={(value) => handleFilterChange('gender', value)}>
-                              <SelectTrigger>
-                                <SelectValue placeholder="All genders" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="">All Genders</SelectItem>
-                                <SelectItem value="Male">Male</SelectItem>
-                                <SelectItem value="Female">Female</SelectItem>
-                              </SelectContent>
-                            </Select>
+                                                         <Select value={filters.gender} onValueChange={(value) => handleFilterChange('gender', value)}>
+                               <SelectTrigger>
+                                 <SelectValue placeholder="All genders" />
+                               </SelectTrigger>
+                               <SelectContent>
+                                 <SelectItem value="all">All Genders</SelectItem>
+                                 <SelectItem value="Male">Male</SelectItem>
+                                 <SelectItem value="Female">Female</SelectItem>
+                               </SelectContent>
+                             </Select>
                           </div>
                           <div>
                             <Label htmlFor="age-filter">Age Range</Label>
-                            <Select value={filters.ageRange} onValueChange={(value) => handleFilterChange('ageRange', value)}>
-                              <SelectTrigger>
-                                <SelectValue placeholder="All ages" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="">All Ages</SelectItem>
-                                <SelectItem value="0-18">0-18</SelectItem>
-                                <SelectItem value="19-30">19-30</SelectItem>
-                                <SelectItem value="31-50">31-50</SelectItem>
-                                <SelectItem value="51+">51+</SelectItem>
-                              </SelectContent>
-                            </Select>
+                                                         <Select value={filters.ageRange} onValueChange={(value) => handleFilterChange('ageRange', value)}>
+                               <SelectTrigger>
+                                 <SelectValue placeholder="All ages" />
+                               </SelectTrigger>
+                               <SelectContent>
+                                 <SelectItem value="all">All Ages</SelectItem>
+                                 <SelectItem value="0-18">0-18</SelectItem>
+                                 <SelectItem value="19-30">19-30</SelectItem>
+                                 <SelectItem value="31-50">31-50</SelectItem>
+                                 <SelectItem value="51+">51+</SelectItem>
+                               </SelectContent>
+                             </Select>
                           </div>
                           <div>
                             <Label htmlFor="status-filter">Status</Label>
-                            <Select value={filters.status} onValueChange={(value) => handleFilterChange('status', value)}>
-                              <SelectTrigger>
-                                <SelectValue placeholder="All statuses" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="">All Statuses</SelectItem>
-                                <SelectItem value="active">Active</SelectItem>
-                                <SelectItem value="archived">Archived</SelectItem>
-                              </SelectContent>
-                            </Select>
+                                                         <Select value={filters.status} onValueChange={(value) => handleFilterChange('status', value)}>
+                               <SelectTrigger>
+                                 <SelectValue placeholder="All statuses" />
+                               </SelectTrigger>
+                               <SelectContent>
+                                 <SelectItem value="all">All Statuses</SelectItem>
+                                 <SelectItem value="active">Active</SelectItem>
+                                 <SelectItem value="archived">Archived</SelectItem>
+                               </SelectContent>
+                             </Select>
                           </div>
                         </div>
                       </CardContent>
@@ -213,13 +270,13 @@ export default function PatientsList() {
                 )}
 
                 <div id="tour-patient-list" className="px-4 lg:px-6">
-                  <DataTable 
-                    data={patients} 
-                    pagination={pagination}
-                    showArchived={showArchived}
-                    onShowArchivedChange={setShowArchived}
-                    onPageChange={(page, limit) => fetchPatients(page, limit, showArchived)}
-                  />
+                                     <DataTable 
+                     data={filteredPatients} 
+                     pagination={pagination}
+                     showArchived={showArchived}
+                     onShowArchivedChange={setShowArchived}
+                     onPageChange={(page, limit) => fetchPatients(page, limit, showArchived)}
+                   />
                 </div>
             </div>
           </div>

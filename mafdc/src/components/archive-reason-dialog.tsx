@@ -78,7 +78,7 @@ export function ArchiveReasonDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="w-full max-w-xs sm:max-w-[425px] p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <IconAlertTriangle className={`h-5 w-5 ${actionColor}`} />
@@ -90,23 +90,23 @@ export function ArchiveReasonDialog({
           </DialogDescription>
         </DialogHeader>
         
-        <div className="grid gap-4 py-4">
-          <div className="grid gap-2">
-            <Label htmlFor="reason" className="text-sm font-medium">
-              {isArchiving ? "Archive Reason *" : "Restore Reason (Optional)"}
-            </Label>
-            <Textarea
-              id="reason"
-              placeholder={
-                isArchiving 
-                  ? "Please explain why you're archiving this patient..." 
-                  : "Optional: Explain why you're restoring this patient..."
-              }
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              className="min-h-[100px] resize-none"
-              disabled={isSubmitting || loading}
-            />
+                 <div className="grid gap-4 py-2 sm:py-4">
+           <div className="grid gap-2">
+             <Label htmlFor="reason" className="text-sm font-medium">
+               {isArchiving ? "Archive Reason *" : "Restore Reason (Optional)"}
+             </Label>
+             <Textarea
+               id="reason"
+               placeholder={
+                 isArchiving 
+                   ? "Please explain why you're archiving this patient..." 
+                   : "Optional: Explain why you're restoring this patient..."
+               }
+               value={reason}
+               onChange={(e) => setReason(e.target.value)}
+               className="min-h-[80px] sm:min-h-[100px] resize-none"
+               disabled={isSubmitting || loading}
+             />
             {isArchiving && (
               <p className="text-xs text-muted-foreground">
                 This reason will be logged for audit purposes.
@@ -115,18 +115,19 @@ export function ArchiveReasonDialog({
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="flex flex-col sm:flex-row gap-2">
           <Button
             variant="outline"
+            className="flex-1"
             onClick={handleCancel}
             disabled={isSubmitting || loading}
           >
             Cancel
           </Button>
           <Button
+            className={`flex-1 ${isArchiving ? "bg-red-600 hover:bg-red-700" : "bg-green-600 hover:bg-green-700"}`}
             onClick={handleConfirm}
             disabled={isDisabled || isSubmitting || loading}
-            className={isArchiving ? "bg-red-600 hover:bg-red-700" : "bg-green-600 hover:bg-green-700"}
           >
             {(isSubmitting || loading) && (
               <IconLoader className="mr-2 h-4 w-4 animate-spin" />

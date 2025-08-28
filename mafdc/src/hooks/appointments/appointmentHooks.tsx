@@ -147,6 +147,9 @@ export const useAppointments = () => {
       setLoading(true);
       setError(null);
       
+      console.log('updateAppointment called with ID:', id);
+      console.log('updateAppointment data:', updateData);
+      
       // Note: Backend will handle status logic automatically:
       // - Pending → Scheduled (approval)
       // - Scheduled → Rescheduled (modification)
@@ -161,6 +164,8 @@ export const useAppointments = () => {
       return decryptedData;
     } catch (err: unknown) {
       const apiError = err as ApiError;
+      console.error('updateAppointment error:', apiError);
+      console.error('Error response:', apiError.response?.data);
       const errorMessage = apiError.response?.data?.message || apiError.message || 'Failed to update appointment';
       setError(errorMessage);
       throw new Error(errorMessage);
