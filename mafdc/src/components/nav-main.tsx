@@ -13,12 +13,14 @@ import {
 
 export function NavMain({
   items,
+  pathname,
 }: {
   items: {
     title: string
     url: string
     icon?: Icon
   }[]
+  pathname: string
 }) {
   return (
     <SidebarGroup>
@@ -29,16 +31,23 @@ export function NavMain({
           </SidebarMenuItem>
         </SidebarMenu>
         <SidebarMenu>
-          {items.map((item) => (
-            <SidebarMenuItem key={item.title}>
-              <Link href={item.url} style={{ width: '100%' }}>
-                <SidebarMenuButton tooltip={item.title}>
-                  {item.icon && <item.icon />}
-                  <span>{item.title}</span>
-                </SidebarMenuButton>
-              </Link>
-            </SidebarMenuItem>
-          ))}
+          {items.map((item) => {
+            const isActive = pathname === item.url || pathname.startsWith(item.url + '/');
+            return (
+              <SidebarMenuItem key={item.title}>
+                <Link href={item.url} style={{ width: '100%' }}>
+                  <SidebarMenuButton 
+                    tooltip={item.title} 
+                    isActive={isActive}
+                    className={isActive ? "!bg-violet-400 !text-white hover:!bg-violet-500" : ""}
+                  >
+                    {item.icon && <item.icon />}
+                    <span>{item.title}</span>
+                  </SidebarMenuButton>
+                </Link>
+              </SidebarMenuItem>
+            );
+          })}
         </SidebarMenu>
       </SidebarGroupContent>
     </SidebarGroup>

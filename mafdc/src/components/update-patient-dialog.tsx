@@ -32,9 +32,30 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { IconPlus } from "@tabler/icons-react"
+import { IconPlus, IconX } from "@tabler/icons-react"
 
 type CaseStatus = "Active" | "Completed" | "Cancelled";
+
+interface CaseImage {
+  _id?: string;
+  filename: string;
+  originalName: string;
+  path: string;
+  mimeType: string;
+  size: number;
+  uploadedAt?: string;
+  description?: string;
+  url?: string;
+}
+
+interface CaseWithImages {
+  _id?: string;
+  title: string;
+  description: string;
+  treatmentPlan?: string;
+  status: CaseStatus;
+  images?: CaseImage[];
+}
 
 type FormValues = {
   firstName: string;
@@ -44,12 +65,7 @@ type FormValues = {
   gender: string;
   contactNumber: string;
   email?: string;
-  cases: Array<{
-    title: string;
-    description: string;
-    treatmentPlan?: string;
-    status: CaseStatus;
-  }>;
+  cases: Array<CaseWithImages>;
   address?: {
     street?: string;
     city?: string;
@@ -64,11 +80,45 @@ type FormValues = {
   allergies?: string;
 }
 
+// Form values for update dialog with optional birthDate
+type UpdateFormValues = Omit<FormValues, 'birthDate'> & {
+  birthDate?: string;
+}
+
 const formSchema = z.object({
   firstName: z.string().min(2, "First name must be at least 2 characters"),
   middleName: z.string().optional(),
   lastName: z.string().min(2, "Last name must be at least 2 characters"),
   birthDate: z.string().min(1, "Birth date is required"),
+  gender: z.string().min(1, "Gender is required"),
+  contactNumber: z.string().min(10, "Contact number must be at least 10 digits"),
+  email: z.string().email("Invalid email address").optional().or(z.literal("")),
+  cases: z.array(z.object({
+    title: z.string().min(1, "Case title is required"),
+    description: z.string().min(1, "Description is required"),
+    treatmentPlan: z.string().optional(),
+    status: z.enum(["Active", "Completed", "Cancelled"] as const)
+  })).min(1, "At least one case is required"),
+  address: z.object({
+    street: z.string().optional(),
+    city: z.string().optional(),
+    province: z.string().optional(),
+    postalCode: z.string().optional(),
+  }).optional(),
+  emergencyContact: z.object({
+    name: z.string().optional(),
+    relationship: z.string().optional(),
+    contactNumber: z.string().optional(),
+  }).optional(),
+  allergies: z.string().optional(),
+})
+
+// Separate schema for update dialog with optional birthDate
+const updateFormSchema = z.object({
+  firstName: z.string().min(2, "First name must be at least 2 characters"),
+  middleName: z.string().optional(),
+  lastName: z.string().min(2, "Last name must be at least 2 characters"),
+  birthDate: z.string().optional().or(z.literal("")),
   gender: z.string().min(1, "Gender is required"),
   contactNumber: z.string().min(10, "Contact number must be at least 10 digits"),
   email: z.string().email("Invalid email address").optional().or(z.literal("")),
@@ -102,10 +152,22 @@ interface Patient {
   contactNumber: string;
   email?: string;
   cases?: Array<{
+    _id?: string;
     title: string;
     description: string;
     treatmentPlan?: string;
     status: CaseStatus;
+    images?: Array<{
+      _id?: string;
+      filename: string;
+      originalName: string;
+      path: string;
+      mimeType: string;
+      size: number;
+      uploadedAt?: string;
+      description?: string;
+      url?: string;
+    }>;
   }>;
   address?: {
     street?: string;
@@ -193,7 +255,18 @@ export function AddPatientDialog({ onPatientAdded }: AddPatientDialogProps) {
 
   async function onSubmit(values: FormValues) {
     try {
-      await createPatient(values)
+      // Transform FormValues to CreatePatientInput (exclude images from cases)
+      const createInput = {
+        ...values,
+        cases: values.cases.map(caseItem => ({
+          title: caseItem.title,
+          description: caseItem.description,
+          treatmentPlan: caseItem.treatmentPlan,
+          status: caseItem.status,
+          // Don't include images in create - images are uploaded separately
+        }))
+      }
+      await createPatient(createInput)
       form.reset()
       setOpen(false)
       if (onPatientAdded) {
@@ -557,18 +630,111 @@ export function AddPatientDialog({ onPatientAdded }: AddPatientDialogProps) {
 }
 
 export function UpdatePatientDialog({ patient, open, onOpenChange, onPatientUpdated }: UpdatePatientDialogProps) {
-  const { updatePatient } = usePatients()
+  const { updatePatient, uploadCaseImages, deleteCaseImage } = usePatients()
   const [cases, setCases] = React.useState<FormValues["cases"]>(
-    patient.cases || [{ title: "", description: "", treatmentPlan: "", status: "Active" }]
+    (patient.cases || [{ title: "", description: "", treatmentPlan: "", status: "Active" }]).map(caseItem => ({
+      ...caseItem,
+      ...(('images' in caseItem && caseItem.images) ? { images: caseItem.images } : {})
+    }))
   )
+  const [caseImages, setCaseImages] = React.useState<Record<number, File[]>>({})
+  const [deletingImages, setDeletingImages] = React.useState<Set<string>>(new Set())
 
-  const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
+  const handleImageChange = (
+    caseIndex: number,
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const files = event.target.files;
+    if (files) {
+      const fileArray = Array.from(files);
+      setCaseImages(prev => ({
+        ...prev,
+        [caseIndex]: [...(prev[caseIndex] || []), ...fileArray]
+      }));
+    }
+  };
+
+  const removeImage = (caseIndex: number, imageIndex: number) => {
+    setCaseImages(prev => {
+      const newImages = { ...prev };
+      if (newImages[caseIndex]) {
+        newImages[caseIndex] = newImages[caseIndex].filter((_, i) => i !== imageIndex);
+        if (newImages[caseIndex].length === 0) {
+          delete newImages[caseIndex];
+        }
+      }
+      return newImages;
+    });
+  };
+
+  const handleDeleteExistingImage = async (caseIndex: number, imageId: string, caseId?: string) => {
+    if (!caseId || !imageId) return;
+    
+    try {
+      setDeletingImages(prev => new Set(prev).add(imageId));
+      await deleteCaseImage(patient._id, caseId, imageId);
+      
+      // Remove image from local state
+      setCases(prev => {
+        const updated = [...prev];
+        if (updated[caseIndex] && updated[caseIndex].images) {
+          updated[caseIndex] = {
+            ...updated[caseIndex],
+            images: updated[caseIndex].images!.filter(
+              (img: CaseImage) => img._id !== imageId
+            )
+          };
+        }
+        return updated;
+      });
+    } catch (error) {
+      console.error("Failed to delete image:", error);
+    } finally {
+      setDeletingImages(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(imageId);
+        return newSet;
+      });
+    }
+  };
+
+  // Helper function to format date for input field (YYYY-MM-DD)
+  const formatDateForInput = React.useCallback((dateString: string | undefined): string => {
+    if (!dateString) return "";
+    
+    // If already in YYYY-MM-DD format, return as is
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+      return dateString;
+    }
+    
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        console.warn('Invalid date string:', dateString);
+        return "";
+      }
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const formatted = `${year}-${month}-${day}`;
+      return formatted;
+    } catch (error) {
+      console.error('Error formatting date:', dateString, error);
+      return "";
+    }
+  }, []);
+
+  // Format birth date once
+  const formattedBirthDate = React.useMemo(() => formatDateForInput(patient.birthDate), [patient.birthDate, formatDateForInput]);
+
+  const form = useForm<UpdateFormValues>({
+    resolver: zodResolver(updateFormSchema),
+    mode: 'onChange',
     defaultValues: {
       firstName: patient.firstName || "",
       middleName: patient.middleName || "",
       lastName: patient.lastName || "",
-      birthDate: patient.birthDate || "",
+      birthDate: formattedBirthDate,
       gender: patient.gender || "",
       contactNumber: patient.contactNumber || "",
       email: patient.email || "",
@@ -588,16 +754,25 @@ export function UpdatePatientDialog({ patient, open, onOpenChange, onPatientUpda
     },
   })
 
+  // Clear validation errors when dialog opens and form is reset
+  React.useEffect(() => {
+    if (open && formattedBirthDate) {
+      form.clearErrors('birthDate');
+      form.setValue('birthDate', formattedBirthDate, { shouldValidate: false });
+    }
+  }, [open, formattedBirthDate, form]);
+
   // Update form values when patient changes
   React.useEffect(() => {
     if (patient) {
       const patientCases = patient.cases || [{ title: "", description: "", treatmentPlan: "", status: "Active" as const }];
       setCases(patientCases);
+      const formattedDate = formatDateForInput(patient.birthDate);
       form.reset({
         firstName: patient.firstName || "",
         middleName: patient.middleName || "",
         lastName: patient.lastName || "",
-        birthDate: patient.birthDate || "",
+        birthDate: formattedDate,
         gender: patient.gender || "",
         contactNumber: patient.contactNumber || "",
         email: patient.email || "",
@@ -615,8 +790,11 @@ export function UpdatePatientDialog({ patient, open, onOpenChange, onPatientUpda
         },
         allergies: patient.allergies || "",
       });
+      // Reset image state when patient changes
+      setCaseImages({});
+      setDeletingImages(new Set());
     }
-  }, [patient, form]);
+  }, [patient, form, formatDateForInput]);
 
   const addCase = () => {
     const newCase = { 
@@ -636,9 +814,52 @@ export function UpdatePatientDialog({ patient, open, onOpenChange, onPatientUpda
     form.setValue("cases", newCases)
   }
 
-  async function onSubmit(values: FormValues) {
+  async function onSubmit(values: UpdateFormValues) {
     try {
-      await updatePatient(patient._id, values)
+      // Update patient first (without images)
+      // Convert UpdateFormValues to FormValues for API
+      // Always include the original patient's birthDate if not being changed
+      // Include case IDs so backend can preserve images
+      const formValues: FormValues = {
+        ...values,
+        // Use the form value if provided, otherwise use the original patient's birthDate
+        birthDate: values.birthDate && values.birthDate.trim() !== "" 
+          ? values.birthDate 
+          : (formattedBirthDate || patient.birthDate || ""),
+        // Include case IDs from original patient data to preserve images
+        cases: values.cases.map((caseItem, index) => {
+          const originalCase = patient.cases?.[index];
+          return {
+            ...caseItem,
+            // Include _id if it exists in the original case
+            ...(originalCase?._id ? { _id: originalCase._id } : {})
+          };
+        })
+      };
+      const result = await updatePatient(patient._id, formValues)
+      
+      // Upload images for each case if patient was updated successfully
+      if (result && result.patient && result.patient._id) {
+        const patientId = result.patient._id;
+        
+        // Upload images for each case
+        for (let caseIndex = 0; caseIndex < cases.length; caseIndex++) {
+          const images = caseImages[caseIndex];
+          if (images && images.length > 0 && result.patient.cases && result.patient.cases[caseIndex]) {
+            const caseId = result.patient.cases[caseIndex]._id;
+            if (caseId) {
+              try {
+                await uploadCaseImages(patientId, caseId, images);
+              } catch (imageError) {
+                console.error(`Failed to upload images for case ${caseIndex}:`, imageError);
+                // Continue with other cases even if one fails
+              }
+            }
+          }
+        }
+      }
+      
+      setCaseImages({})
       onOpenChange(false)
       if (onPatientUpdated) {
         onPatientUpdated()
@@ -802,6 +1023,80 @@ export function UpdatePatientDialog({ patient, open, onOpenChange, onPatientUpda
                       </FormItem>
                     )}
                   />
+                  <div className="space-y-2">
+                    <FormLabel>X-Ray/Images (Optional)</FormLabel>
+                    
+                    {/* Display existing images */}
+                    {(cases[index]?.images && cases[index].images.length > 0) || 
+                     (patient.cases && patient.cases[index] && patient.cases[index].images && patient.cases[index].images!.length > 0) ? (
+                      <div className="space-y-2 mb-2">
+                        <p className="text-xs text-muted-foreground">Existing Images:</p>
+                        {(cases[index]?.images || patient.cases?.[index]?.images || []).map((image: CaseImage, imgIndex: number) => (
+                          <div key={image._id || imgIndex} className="flex items-center justify-between p-2 bg-slate-100 rounded text-sm">
+                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                              {image.url ? (
+                                <a 
+                                  href={image.url.startsWith('http') ? image.url : `${process.env.NEXT_PUBLIC_API_URL?.replace('/api/v1', '') || 'http://localhost:8080'}${image.url}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-blue-600 hover:underline truncate"
+                                >
+                                  {image.originalName || image.filename}
+                                </a>
+                              ) : (
+                                <span className="truncate">{image.originalName || image.filename}</span>
+                              )}
+                            </div>
+                            {image._id && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  const caseId = cases[index]?._id || patient.cases?.[index]?._id;
+                                  if (image._id && caseId) {
+                                    handleDeleteExistingImage(index, image._id, caseId);
+                                  }
+                                }}
+                                disabled={image._id ? deletingImages.has(image._id) : false}
+                                className="text-red-500 hover:text-red-700 ml-2 h-6 w-6 p-0"
+                              >
+                                <IconX className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                    
+                    {/* Upload new images */}
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={(e) => handleImageChange(index, e)}
+                      className="cursor-pointer"
+                    />
+                    {caseImages[index] && caseImages[index].length > 0 && (
+                      <div className="space-y-2 mt-2">
+                        <p className="text-xs text-muted-foreground">New Images to Upload:</p>
+                        {caseImages[index].map((file, imgIndex) => (
+                          <div key={imgIndex} className="flex items-center justify-between p-2 bg-slate-100 rounded text-sm">
+                            <span className="truncate flex-1">{file.name}</span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeImage(index, imgIndex)}
+                              className="text-red-500 hover:text-red-700 ml-2 h-6 w-6 p-0"
+                            >
+                              <IconX className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -813,7 +1108,11 @@ export function UpdatePatientDialog({ patient, open, onOpenChange, onPatientUpda
                   <FormItem>
                     <FormLabel>Birth Date</FormLabel>
                     <FormControl>
-                      <Input type="date" {...field} />
+                      <Input 
+                        type="date" 
+                        {...field}
+                        value={field.value || formattedBirthDate || ""}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

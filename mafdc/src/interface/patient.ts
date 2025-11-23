@@ -23,10 +23,22 @@ export interface Patient {
     lastVisit?: string;
     isActive: boolean;
     cases?: Array<{
+      _id?: string;
       title: string;
       description: string;
       treatmentPlan?: string;
       status: "Active" | "Completed" | "Cancelled";
+      images?: Array<{
+        _id?: string;
+        filename: string;
+        originalName: string;
+        path: string;
+        mimeType: string;
+        size: number;
+        uploadedAt?: string;
+        description?: string;
+        url?: string;
+      }>;
     }>;
   }
   
@@ -52,6 +64,7 @@ export interface Patient {
       description: string;
       treatmentPlan?: string;
       status: "Active" | "Completed" | "Cancelled";
+      images?: File[];
     }>;
     address?: {
       street?: string;

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -57,12 +57,7 @@ export function NotificationsDropdown() {
 
   const { getMissedAppointments, updateMissedAppointments } = useAppointments()
 
-  // Fetch missed appointments on component mount
-  useEffect(() => {
-    fetchMissedAppointments()
-  }, [])
-
-  const fetchMissedAppointments = async () => {
+  const fetchMissedAppointments = useCallback(async () => {
     try {
       setIsLoading(true)
       const missedAppointments = await getMissedAppointments()
@@ -73,7 +68,12 @@ export function NotificationsDropdown() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [getMissedAppointments])
+
+  // Fetch missed appointments on component mount 
+  useEffect(() => {
+    fetchMissedAppointments()
+  }, [fetchMissedAppointments])
 
   const displayedNotifications = showAll ? notifications : notifications.slice(0, 3)
   const hasMoreNotifications = notifications.length > 3

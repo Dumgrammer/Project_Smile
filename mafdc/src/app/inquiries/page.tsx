@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectTrigger, SelectValue, SelectItem } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Eye, Archive, Trash2, RefreshCw, RotateCcw, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Filter } from "lucide-react";
+import { Eye, Archive, RefreshCw, RotateCcw, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Filter } from "lucide-react";
 import { ReplyDialog } from "@/components/reply";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SiteHeader } from "@/components/site-header";
@@ -23,6 +23,7 @@ import {
 import { useInquiries } from "@/hooks/inquiry/inquiryHooks";
 import { Inquiry } from "@/interface/Inquiry";
 import { toast } from "sonner";
+import AuthGuard from '@/components/AuthGuard';
 
 export default function InquiriesPage() {
   const { isLoading: authLoading } = useAuth(true); // Require authentication
@@ -31,7 +32,6 @@ export default function InquiriesPage() {
     updateInquiryStatus, 
     archiveInquiry,
     restoreInquiry,
-    deleteInquiry, 
     loading 
   } = useInquiries();
   
@@ -53,7 +53,8 @@ export default function InquiriesPage() {
   const [filters, setFilters] = useState({
     search: '',
     status: 'all',
-    dateRange: 'all'
+    dateRange: 'all',
+    service: 'all'
   });
 
   const getStatusBadgeVariant = (status: string) => {
@@ -109,21 +110,21 @@ export default function InquiriesPage() {
     } finally {
       setRefreshing(false);
     }
-  }, [getInquiries]);
+  }, [getInquiries, currentTab, pagination.page, pagination.limit]);
 
   // Fetch inquiries on component mount only
   useEffect(() => {
     if (!authLoading) {
       fetchInquiries();
     }
-  }, [authLoading]);
+  }, [authLoading, fetchInquiries]);
 
   // Fetch inquiries when pagination or tab changes
   useEffect(() => {
     if (!authLoading) {
       fetchInquiries();
     }
-  }, [pagination.page, pagination.limit, currentTab]);
+  }, [authLoading, fetchInquiries, pagination.page, pagination.limit, currentTab]);
 
   const handleReadInquiry = async (inquiry: Inquiry) => {
     setSelectedInquiry(inquiry);
@@ -244,34 +245,6 @@ export default function InquiriesPage() {
     });
   };
 
-  const handleDeleteInquiry = async (inquiry: Inquiry) => {
-    // Use toast for confirmation instead of alert
-    toast.error(`Delete inquiry from ${inquiry.fullName}?`, {
-      action: {
-        label: 'Delete',
-        onClick: async () => {
-          try {
-            const result = await deleteInquiry(inquiry.id);
-            if (result.success) {
-              // Remove from local state
-              setInquiries(prev => prev.filter(inq => inq.id !== inquiry.id));
-              toast.success('Inquiry deleted successfully');
-            } else {
-              toast.error(result.error || 'Failed to delete inquiry');
-            }
-          } catch (error) {
-            console.error('Error deleting inquiry:', error);
-            toast.error('Failed to delete inquiry');
-          }
-        }
-      },
-      cancel: {
-        label: 'Cancel',
-        onClick: () => {}
-      }
-    });
-  };
-
   // Pagination handlers
   const handlePageChange = (newPage: number) => {
     setPagination(prev => ({ ...prev, page: newPage }));
@@ -303,6 +276,8 @@ export default function InquiriesPage() {
     
     const matchesStatus = filters.status === 'all' || inquiry.status === filters.status;
     
+    const matchesService = filters.service === 'all' || inquiry.subject === filters.service;
+    
     const matchesDateRange = filters.dateRange === 'all' || (() => {
       const inquiryDate = new Date(inquiry.createdAt);
       const now = new Date();
@@ -325,7 +300,7 @@ export default function InquiriesPage() {
       }
     })();
     
-    return matchesSearch && matchesStatus && matchesDateRange;
+    return matchesSearch && matchesStatus && matchesService && matchesDateRange;
   });
 
   const displayedInquiries = filteredInquiries;
@@ -343,7 +318,8 @@ export default function InquiriesPage() {
   }
 
   return (
-    <SidebarProvider>
+    <AuthGuard>
+      <SidebarProvider>
       <AppSidebar variant="inset" />
       <SidebarInset>
         <SiteHeader />
@@ -385,7 +361,7 @@ export default function InquiriesPage() {
                     <CardTitle>Filters</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                       <div>
                         <Label htmlFor="search-filter">Search</Label>
                         <Input
@@ -397,32 +373,58 @@ export default function InquiriesPage() {
                       </div>
                       <div>
                         <Label htmlFor="status-filter">Status</Label>
-                                                 <Select value={filters.status} onValueChange={(value) => handleFilterChange('status', value)}>
-                           <SelectTrigger>
-                             <SelectValue placeholder="All statuses" />
-                           </SelectTrigger>
-                           <SelectContent>
-                             <SelectItem value="all">All Statuses</SelectItem>
-                             <SelectItem value="Unread">Unread</SelectItem>
-                             <SelectItem value="Read">Read</SelectItem>
-                             <SelectItem value="Replied">Replied</SelectItem>
-                           </SelectContent>
-                         </Select>
+                        <Select value={filters.status} onValueChange={(value) => handleFilterChange('status', value)}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="All statuses" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Statuses</SelectItem>
+                            <SelectItem value="Unread">Unread</SelectItem>
+                            <SelectItem value="Read">Read</SelectItem>
+                            <SelectItem value="Replied">Replied</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label htmlFor="service-filter">Service</Label>
+                        <Select value={filters.service} onValueChange={(value) => handleFilterChange('service', value)}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="All services" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Services</SelectItem>
+                            <SelectItem value="Orthodontic Braces">Orthodontic Braces</SelectItem>
+                            <SelectItem value="Cleaning/Oral Prophylaxis">Cleaning/Oral Prophylaxis</SelectItem>
+                            <SelectItem value="Extraction">Extraction</SelectItem>
+                            <SelectItem value="Teeth Whitening">Teeth Whitening</SelectItem>
+                            <SelectItem value="Restoration/Pasta">Restoration/Pasta</SelectItem>
+                            <SelectItem value="Dental Crown">Dental Crown</SelectItem>
+                            <SelectItem value="Fixed Bridge">Fixed Bridge</SelectItem>
+                            <SelectItem value="Veneers">Veneers</SelectItem>
+                            <SelectItem value="Denture">Denture</SelectItem>
+                            <SelectItem value="General Inquiry">General Inquiry</SelectItem>
+                            <SelectItem value="Appointment Scheduling">Appointment Scheduling</SelectItem>
+                            <SelectItem value="Emergency">Emergency</SelectItem>
+                            <SelectItem value="Insurance Questions">Insurance Questions</SelectItem>
+                            <SelectItem value="Payment Options">Payment Options</SelectItem>
+                            <SelectItem value="Other">Other</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
                       <div>
                         <Label htmlFor="date-filter">Date Range</Label>
-                                                 <Select value={filters.dateRange} onValueChange={(value) => handleFilterChange('dateRange', value)}>
-                           <SelectTrigger>
-                             <SelectValue placeholder="All dates" />
-                           </SelectTrigger>
-                           <SelectContent>
-                             <SelectItem value="all">All Dates</SelectItem>
-                             <SelectItem value="today">Today</SelectItem>
-                             <SelectItem value="week">This Week</SelectItem>
-                             <SelectItem value="month">This Month</SelectItem>
-                             <SelectItem value="year">This Year</SelectItem>
-                           </SelectContent>
-                         </Select>
+                        <Select value={filters.dateRange} onValueChange={(value) => handleFilterChange('dateRange', value)}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="All dates" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Dates</SelectItem>
+                            <SelectItem value="today">Today</SelectItem>
+                            <SelectItem value="week">This Week</SelectItem>
+                            <SelectItem value="month">This Month</SelectItem>
+                            <SelectItem value="year">This Year</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
                     </div>
                   </CardContent>
@@ -508,15 +510,6 @@ export default function InquiriesPage() {
                                     >
                                       <Archive className="h-4 w-4" />
                                     </Button>
-                                    <Button 
-                                      size="sm" 
-                                      variant="outline" 
-                                      className="text-red-600 hover:text-red-700 dark:border-gray-600 dark:hover:bg-gray-700"
-                                      onClick={() => handleDeleteInquiry(inquiry)}
-                                      disabled={loading}
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
                                   </div>
                                 </TableCell>
                               </TableRow>
@@ -581,15 +574,6 @@ export default function InquiriesPage() {
                                     className="dark:border-gray-600 dark:hover:bg-gray-700"
                                   >
                                     <Archive className="h-3 w-3" />
-                                  </Button>
-                                  <Button 
-                                    size="sm" 
-                                    variant="outline" 
-                                    className="text-red-600 hover:text-red-700 dark:border-gray-600 dark:hover:bg-gray-700"
-                                    onClick={() => handleDeleteInquiry(inquiry)}
-                                    disabled={loading}
-                                  >
-                                    <Trash2 className="h-3 w-3" />
                                   </Button>
                                 </div>
                               </div>
@@ -668,15 +652,7 @@ export default function InquiriesPage() {
                                     >
                                       <RotateCcw className="h-4 w-4" />
                                     </Button>
-                                    <Button 
-                                      size="sm" 
-                                      variant="outline" 
-                                      className="text-red-600 hover:text-red-700 dark:border-gray-600 dark:hover:bg-gray-700"
-                                      onClick={() => handleDeleteInquiry(inquiry)}
-                                      disabled={loading}
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
+
                                   </div>
                                 </TableCell>
                               </TableRow>
@@ -744,15 +720,7 @@ export default function InquiriesPage() {
                                   >
                                     <RotateCcw className="h-3 w-3" />
                                   </Button>
-                                  <Button 
-                                    size="sm" 
-                                    variant="outline" 
-                                    className="text-red-600 hover:text-red-700 dark:border-gray-600 dark:hover:bg-gray-700"
-                                    onClick={() => handleDeleteInquiry(inquiry)}
-                                    disabled={loading}
-                                  >
-                                    <Trash2 className="h-3 w-3" />
-                                  </Button>
+
                                 </div>
                               </div>
                             </div>
@@ -1088,5 +1056,6 @@ export default function InquiriesPage() {
         </DialogContent>
       </Dialog>
     </SidebarProvider>
+    </AuthGuard>
   );
 }

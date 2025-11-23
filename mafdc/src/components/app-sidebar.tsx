@@ -2,15 +2,17 @@
 
 import * as React from "react"
 import { useEffect, useState, useMemo, useCallback } from "react"
+import { usePathname } from "next/navigation"
+import Image from "next/image"
 import Cookies from "js-cookie"
 import {
   IconChartBar,
   IconDashboard,
-  IconInnerShadowTop,
   IconListDetails,
   IconLogout,
+  IconFileChart,
   IconMessageCircle,
-  IconSettings
+  IconSettings  
 } from "@tabler/icons-react"
 
 import { NavMain } from "@/components/nav-main"
@@ -36,6 +38,7 @@ interface AdminData {
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { logout } = useLogin();
   const [adminData, setAdminData] = useState<AdminData | null>(null);
+  const pathname = usePathname();
 
   useEffect(() => {
     // Get admin data from cookie
@@ -73,6 +76,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       icon: IconMessageCircle,
     },
     {
+      title: "Reports",
+      url: "/reports",
+      icon: IconFileChart,
+    },
+    {
       title: "Logs",
       url: "/logs",
       icon: IconListDetails,
@@ -105,10 +113,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     name: `${adminData.firstName} ${adminData.lastName}`,
     email: adminData.email,
     avatar: "/avatars/user.jpg",
+    role: adminData.role,
   } : {
     name: "User",
     email: "user@example.com",
     avatar: "/avatars/user.jpg",
+    role: "User",
   }, [adminData]);
 
   return (
@@ -120,8 +130,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               asChild
               className="data-[slot=sidebar-menu-button]:!p-1.5"
             >
-              <a href="/dashboard">
-                <IconInnerShadowTop className="!size-5" />
+              <a href="/dashboard" className="flex items-center space-x-2">
+                <Image 
+                  src="/Mafdc.jpg" 
+                  alt="MA Florencio Dental Clinic" 
+                  width={28} 
+                  height={28} 
+                  className="rounded-md"
+                />
                 <span className="text-base font-semibold">MA Florencio Dental Clinic</span>
               </a>
             </SidebarMenuButton>
@@ -137,8 +153,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={navMain} />
-        <NavSecondary items={navSecondary} className="mt-auto" />
+        <NavMain items={navMain} pathname={pathname} />
+        <NavSecondary items={navSecondary} pathname={pathname} className="mt-auto" />
       </SidebarContent>
     </Sidebar>
   )

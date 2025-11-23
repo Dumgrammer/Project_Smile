@@ -13,25 +13,38 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { useAppointments } from '@/hooks/appointments/appointmentHooks';
 import { AppointmentNotes, AppointmentEvent } from '@/interface/appointment';
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { AppointmentDialogs } from "./dialog";
 import { WeekCalendar } from '@/components/calendar';
+import Cookies from 'js-cookie';
+import AuthGuard from '@/components/AuthGuard';
 
 type CalendarView = 'month' | 'week' | 'day';
 
-export default function AppointmentsPage() {
+interface AdminData {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  role: string;
+}
 
+export default function AppointmentsPage() {
   const useAppointmentsHook = useAppointments();
   const getAppointments = useAppointmentsHook.getAppointments;
   const getArchivedAppointments = useAppointmentsHook.getArchivedAppointments;
   const createAppointment = useAppointmentsHook.createAppointment;
   const cancelAppointment = useAppointmentsHook.cancelAppointment;
   const completeAppointment = useAppointmentsHook.completeAppointment;
+  const getAppointmentNotes = useAppointmentsHook.getAppointmentNotes;
 
   const updateAppointment = useAppointmentsHook.updateAppointment;
 
@@ -52,6 +65,22 @@ export default function AppointmentsPage() {
     endTime: string;
   }>>([]);
   const [archivedEvents, setArchivedEvents] = useState<Array<{
+    id: string;
+    title: string;
+    start: Date;
+    end: Date;
+    allDay: boolean;
+    status: string;
+    patient: {
+      firstName: string;
+      middleName?: string;
+      lastName: string;
+    };
+    date: string;
+    startTime: string;
+    endTime: string;
+  }>>([]);
+  const [finishedEvents, setFinishedEvents] = useState<Array<{
     id: string;
     title: string;
     start: Date;
@@ -93,13 +122,8 @@ export default function AppointmentsPage() {
   } | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [isRescheduling, setIsRescheduling] = useState(false);
-  const [view, setView] = useState<CalendarView>(() => {
-    // Default to 'day' view on mobile, 'week' on desktop
-    if (typeof window !== 'undefined') {
-      return window.innerWidth < 1024 ? 'day' : 'week';
-    }
-    return 'week';
-  });
+  const [view, setView] = useState<CalendarView>('week'); // Always start with 'week' to prevent hydration mismatch
+  const [mounted, setMounted] = useState(false);
   const [date, setDate] = useState(new Date());
   const [showNotesModal, setShowNotesModal] = useState(false);
   const [appointmentNotes, setAppointmentNotes] = useState<AppointmentNotes>({
@@ -113,6 +137,11 @@ export default function AppointmentsPage() {
   const [successMessage, setSuccessMessage] = useState('');
   const [showMonthMenu, setShowMonthMenu] = useState(false);
   const [showMonthAppointmentsModal, setShowMonthAppointmentsModal] = useState(false);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [appointmentToCancel, setAppointmentToCancel] = useState<string | null>(null);
+  const [cancelReason, setCancelReason] = useState('');
+  const [adminData, setAdminData] = useState<AdminData | null>(null);
+  const [remarkedAppointments, setRemarkedAppointments] = useState<Set<string>>(new Set());
 
   const fetchAppointments = useCallback(async () => {
     try {
@@ -165,11 +194,25 @@ export default function AppointmentsPage() {
       });
       
       setEvents(formattedEvents);
+      
+      // Check for existing notes on today's Finished appointments (async, non-blocking)
+      formattedEvents.forEach(async (event) => {
+        if (event.status === 'Finished' && isToday(event.start)) {
+          try {
+            const notes = await getAppointmentNotes(event.id);
+            if (notes && (notes.treatmentNotes || notes.reminderNotes)) {
+              setRemarkedAppointments(prev => new Set(prev).add(event.id));
+            }
+          } catch {
+            // If notes don't exist or error, assume no notes
+          }
+        }
+      });
     } catch (err) {
       console.error('Failed to fetch appointments:', err);
       toast.error('Failed to fetch appointments');
     }
-  }, [getAppointments, setEvents]);
+  }, [getAppointments, getAppointmentNotes, setEvents]);
 
   const fetchArchivedAppointments = useCallback(async (date?: Date) => {
     try {
@@ -223,11 +266,65 @@ export default function AppointmentsPage() {
     }
   }, [getArchivedAppointments, setArchivedEvents]);
 
+  // Fetch finished appointments from API
+  const fetchFinishedAppointments = useCallback(async (date?: Date) => {
+    try {
+      const response = await getAppointments(
+        date ? { date: format(date, 'yyyy-MM-dd'), status: 'Finished' } : { status: 'Finished' }
+      );
+      if (Array.isArray(response)) {
+        const formattedFinishedEvents = response.map((apt: {
+          _id: string;
+          title: string;
+          date: string;
+          startTime: string;
+          endTime: string;
+          status: string;
+          patient?: {
+            firstName: string;
+            middleName?: string;
+            lastName: string;
+          } | null;
+        }) => {
+          const appointmentDate = new Date(apt.date);
+          const dateStr = format(appointmentDate, 'yyyy-MM-dd');
+          const start = new Date(`${dateStr}T${apt.startTime}`);
+          const end = new Date(`${dateStr}T${apt.endTime}`);
+
+          const hasPatient = !!apt.patient;
+          const safePatient = apt.patient || { firstName: 'Unknown', lastName: 'Patient' } as {
+            firstName: string;
+            middleName?: string;
+            lastName: string;
+          };
+
+          return {
+            id: apt._id,
+            title: hasPatient ? `${apt.title} - ${safePatient.firstName} ${safePatient.lastName}` : apt.title,
+            start,
+            end,
+            allDay: false,
+            status: apt.status,
+            patient: hasPatient ? safePatient : { firstName: 'Unknown', lastName: 'Patient' },
+            date: dateStr,
+            startTime: apt.startTime,
+            endTime: apt.endTime
+          };
+        });
+        setFinishedEvents(formattedFinishedEvents);
+      }
+    } catch (err) {
+      console.error('Failed to fetch finished appointments:', err);
+      toast.error('Failed to fetch finished appointments');
+    }
+  }, [getAppointments]);
+
   // Memoize the loadData function to prevent it from changing on every render
   const loadData = useCallback(async () => {
     await fetchAppointments();
     await fetchArchivedAppointments();
-  }, [fetchAppointments, fetchArchivedAppointments]);
+    await fetchFinishedAppointments();
+  }, [fetchAppointments, fetchArchivedAppointments, fetchFinishedAppointments]);
 
   useEffect(() => {
     let mounted = true;
@@ -247,8 +344,32 @@ export default function AppointmentsPage() {
     };
   }, [loadData]); // Now we only depend on the memoized loadData function
 
-  // Handle view changes based on screen size
+  // Get admin data from cookies
   useEffect(() => {
+    const adminDataStr = Cookies.get('adminData');
+    if (adminDataStr) {
+      try {
+        const data = JSON.parse(adminDataStr);
+        setAdminData(data);
+      } catch (error) {
+        console.error('Error parsing admin data', error);
+      }
+    }
+  }, []);
+
+  // Handle initial responsive view and resize changes
+  useEffect(() => {
+    setMounted(true);
+    
+    // Set initial view based on screen size after mounting
+    const setInitialView = () => {
+      if (window.innerWidth < 1024) {
+        setView('day');
+      } else {
+        setView('week');
+      }
+    };
+    
     const handleResize = () => {
       if (window.innerWidth < 1024 && view !== 'day') {
         setView('day');
@@ -257,6 +378,9 @@ export default function AppointmentsPage() {
       }
     };
 
+    // Set initial view
+    setInitialView();
+    
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, [view]);
@@ -275,7 +399,7 @@ export default function AppointmentsPage() {
       const selectedDay = new Date(newAppointment.date);
       selectedDay.setHours(0, 0, 0, 0);
       if (selectedDay < today) {
-        toast.error("You can't schedule on a past day");
+        toast.error("You can&apos;t schedule on a past day");
         return;
       }
     }
@@ -342,7 +466,9 @@ export default function AppointmentsPage() {
         fetchAppointments();
         toast.success('Appointment rescheduled successfully and email notification sent to patient');
       } else {
-        // Handle regular updates
+        // Handle regular updates - check if date/time has changed
+        const originalAppointment = events.find(e => e.id === selectedAppointment.id);
+        
         const updateData: {
           date?: string;
           startTime?: string;
@@ -351,11 +477,27 @@ export default function AppointmentsPage() {
           title?: string;
         } = {};
 
-        // Only include the status change, not the date/time (which would trigger availability check)
+        // Check if date or time has changed
+        const newDate = format(selectedAppointment.start, 'yyyy-MM-dd');
+        const newStartTime = format(selectedAppointment.start, 'HH:mm');
+        const newEndTime = format(selectedAppointment.end, 'HH:mm');
+        
+        const originalDate = originalAppointment ? format(originalAppointment.start, 'yyyy-MM-dd') : '';
+        const originalStartTime = originalAppointment ? format(originalAppointment.start, 'HH:mm') : '';
+        const originalEndTime = originalAppointment ? format(originalAppointment.end, 'HH:mm') : '';
+
+        // If date/time changed, include them in update (this will trigger rescheduling logic)
+        if (newDate !== originalDate || newStartTime !== originalStartTime || newEndTime !== originalEndTime) {
+          updateData.date = newDate;
+          updateData.startTime = newStartTime;
+          updateData.endTime = newEndTime;
+        }
+
         updateData.status = selectedAppointment.status as 'Scheduled' | 'Finished' | 'Rescheduled' | 'Cancelled';
         updateData.title = selectedAppointment.title;
 
         console.log('Updating appointment with data:', updateData);
+        console.log('Date/time changed:', newDate !== originalDate || newStartTime !== originalStartTime || newEndTime !== originalEndTime);
 
         // Use updateAppointment for comprehensive updates including status
         await updateAppointment(selectedAppointment.id, updateData);
@@ -371,9 +513,22 @@ export default function AppointmentsPage() {
   };
 
   const handleCancelAppointment = async (appointmentId: string) => {
+    setAppointmentToCancel(appointmentId);
+    setShowCancelDialog(true);
+    setShowEditModal(false); // Close edit modal if open
+  };
+
+  const handleConfirmCancel = async () => {
+    if (!appointmentToCancel || !cancelReason.trim()) {
+      toast.error('Please provide a reason for cancellation');
+      return;
+    }
+
     try {
-      await cancelAppointment(appointmentId);
-      setShowEditModal(false);
+      await cancelAppointment(appointmentToCancel, cancelReason.trim());
+      setShowCancelDialog(false);
+      setAppointmentToCancel(null);
+      setCancelReason('');
       fetchAppointments();
       toast.success('Appointment cancelled successfully');
     } catch (err) {
@@ -384,13 +539,32 @@ export default function AppointmentsPage() {
 
   const handleCompleteAppointment = async (appointmentId: string) => {
     try {
-      // Open notes modal for completion
-      setSelectedAppointment(events.find(event => event.id === appointmentId) || null);
-      setShowNotesModal(true);
-      setShowEditModal(false);
+      const appointment = events.find(event => event.id === appointmentId);
+      if (!appointment) {
+        toast.error('Appointment not found');
+        return;
+      }
+
+      // Check user role
+      const userRole = adminData?.role?.toLowerCase();
+      
+      if (userRole === 'superadmin') {
+        // Superadmin completes appointment (just status update, no notes)
+        await updateAppointment(appointmentId, {
+          status: 'Finished'
+        });
+        setShowEditModal(false);
+        fetchAppointments();
+        toast.success('Appointment completed successfully');
+      } else {
+        // Admin finishes appointment (with treatment notes, reminder notes, payment status)
+        setSelectedAppointment(appointment);
+        setShowNotesModal(true);
+        setShowEditModal(false);
+      }
     } catch (err) {
-      console.error('Failed to open completion modal:', err);
-      toast.error('Failed to open completion modal');
+      console.error('Failed to complete appointment:', err);
+      toast.error('Failed to complete appointment');
     }
   };
 
@@ -414,12 +588,37 @@ export default function AppointmentsPage() {
     }
   };
 
+  const handleApproveAppointment = async (appointmentId: string) => {
+    try {
+      const updateData = {
+        status: 'Scheduled' as const
+      };
+      
+      await updateAppointment(appointmentId, updateData);
+      fetchAppointments();
+      toast.success('Appointment approved successfully and email notification sent to patient');
+    } catch (err) {
+      console.error('Failed to approve appointment:', err);
+      toast.error('Failed to approve appointment');
+    }
+  };
+
   const handleSaveNotes = async () => {
     if (!selectedAppointment) return;
 
     try {
-      // Complete the appointment with notes
-      await completeAppointment(selectedAppointment.id, appointmentNotes);
+      // Complete the appointment with notes - automatically set payment status to Paid
+      const notesWithPaidStatus = {
+        ...appointmentNotes,
+        payment: {
+          status: 'Paid' as const
+        }
+      };
+      await completeAppointment(selectedAppointment.id, notesWithPaidStatus);
+      
+      // Mark this appointment as remarked
+      setRemarkedAppointments(prev => new Set(prev).add(selectedAppointment.id));
+      
       setShowNotesModal(false);
       setAppointmentNotes({
         treatmentNotes: '',
@@ -452,6 +651,11 @@ export default function AppointmentsPage() {
   
   // Update handleSelectSlot to use business logic
   const handleSelectSlot = ({ start, end }: { start: Date; end: Date }) => {
+    // Superadmin cannot create appointments
+    if (adminData?.role?.toLowerCase() === 'superadmin') {
+      return;
+    }
+
     if (isPastDay(start)) {
       toast.error("You can't schedule on a past day");
       return;
@@ -470,14 +674,16 @@ export default function AppointmentsPage() {
     setShowAppointmentModal(true);
   };
   
-  // Get today's appointments (filter out appointments outside business hours)
+  // Get today's appointments (filter out appointments outside business hours, finished appointments, and remarked appointments)
   const todaysAppointments = useMemo(() => {
     return events.filter(event => 
       event.start instanceof Date && 
       isToday(event.start) &&
-      isWithinBusinessHours(event.start) // Only show appointments within business hours
+      event.status !== 'Finished' && // Exclude finished appointments from Today's Schedule
+      isWithinBusinessHours(event.start) && // Only show appointments within business hours
+      !remarkedAppointments.has(event.id) // Filter out appointments that have been remarked
     );
-  }, [events]);
+  }, [events, remarkedAppointments]);
 
   // Get all appointments for the current month (filter out appointments outside business hours)
   const monthAppointments = useMemo(() => {
@@ -491,43 +697,55 @@ export default function AppointmentsPage() {
   }, [events, date]);
 
   // Visible range helpers for custom calendar
-  const startOfWeekMonday = (d: Date) => {
+  const startOfWeekMonday = useCallback((d: Date) => {
     const x = new Date(d);
     const day = x.getDay();
     const diff = (day + 6) % 7;
     x.setDate(x.getDate() - diff);
     x.setHours(0, 0, 0, 0);
     return x;
-  };
-  const endOfWeekMonday = (d: Date) => {
+  }, []);
+  const endOfWeekMonday = useCallback((d: Date) => {
     const s = startOfWeekMonday(d);
     const e = new Date(s);
     e.setDate(e.getDate() + 7);
     e.setMilliseconds(-1);
     return e;
-  };
-  const startOfMonth = (d: Date) => new Date(d.getFullYear(), d.getMonth(), 1);
-  const endOfMonth = (d: Date) => new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999);
+  }, [startOfWeekMonday]);
+  const startOfMonth = useCallback((d: Date) => new Date(d.getFullYear(), d.getMonth(), 1), []);
+  const endOfMonth = useCallback((d: Date) => new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999), []);
+
+  // State to track active tab
+  const [activeTab, setActiveTab] = useState<'active' | 'archived' | 'finished'>('active');
 
   const visibleEvents = useMemo(() => {
+    // Only show events in active tab (exclude Finished and Cancelled)
+    // Finished and Archived tabs show list views, not calendar
+    if (activeTab !== 'active') {
+      return [];
+    }
+
+    // Active tab: exclude Finished and Cancelled
+    const statusFilteredEvents = events.filter(e => e.status !== 'Finished' && e.status !== 'Cancelled');
+
     let filteredEvents;
     if (view === 'day') {
       const start = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0);
       const end = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999);
-      filteredEvents = events.filter(e => e.start >= start && e.start <= end);
+      filteredEvents = statusFilteredEvents.filter(e => e.start >= start && e.start <= end);
     } else if (view === 'week') {
       const start = startOfWeekMonday(date);
       const end = endOfWeekMonday(date);
-      filteredEvents = events.filter(e => e.start >= start && e.start <= end);
+      filteredEvents = statusFilteredEvents.filter(e => e.start >= start && e.start <= end);
     } else {
       const start = startOfMonth(date);
       const end = endOfMonth(date);
-      filteredEvents = events.filter(e => e.start >= start && e.start <= end);
+      filteredEvents = statusFilteredEvents.filter(e => e.start >= start && e.start <= end);
     }
     
     // Filter out appointments outside business hours
     return filteredEvents.filter(e => isWithinBusinessHours(e.start));
-  }, [events, date, view, startOfWeekMonday, endOfWeekMonday, startOfMonth, endOfMonth]);
+  }, [events, activeTab, date, view, startOfWeekMonday, endOfWeekMonday, startOfMonth, endOfMonth]);
 
   const navigate = (action: 'PREV' | 'NEXT' | 'TODAY') => {
     let newDate = new Date(date);
@@ -564,7 +782,8 @@ export default function AppointmentsPage() {
   };
 
   return (
-    <SidebarProvider>
+    <AuthGuard>
+      <SidebarProvider>
       <AppSidebar variant="inset" />
       <SidebarInset>
         <SiteHeader />
@@ -576,27 +795,29 @@ export default function AppointmentsPage() {
                   <h1 className="text-2xl sm:text-3xl font-bold">Appointments</h1>
                   <p className="text-slate-600 text-sm sm:text-base">Manage patient appointments and schedule</p>
                 </div>
-                <Button 
-                  id="tour-new-apt"
-                  className="bg-violet-600 hover:bg-violet-700 w-full sm:w-auto mt-2 sm:mt-0"
-                  onClick={() => {
-                    setNewAppointment({
-                      patientId: '',
-                      title: '',
-                      date: new Date(),
-                      startTime: '09:00',
-                      endTime: '10:00',
-                    });
-                    setShowAppointmentModal(true);
-                  }}
-                >
-                  New Appointment
-                </Button>
+                {adminData?.role?.toLowerCase() !== 'superadmin' && (
+                  <Button 
+                    id="tour-new-apt"
+                    className="bg-violet-600 hover:bg-violet-700 w-full sm:w-auto mt-2 sm:mt-0"
+                    onClick={() => {
+                      setNewAppointment({
+                        patientId: '',
+                        title: '',
+                        date: new Date(),
+                        startTime: '09:00',
+                        endTime: '10:00',
+                      });
+                      setShowAppointmentModal(true);
+                    }}
+                  >
+                    New Appointment
+                  </Button>
+                )}
               </div>
             </div>
-            <div className="px-2 sm:px-4 lg:px-6 flex flex-col lg:grid lg:grid-cols-5 xl:grid-cols-4 gap-4">
+            <div className={`px-2 sm:px-4 lg:px-6 flex flex-col ${adminData?.role?.toLowerCase() === 'superadmin' ? '' : 'lg:grid lg:grid-cols-5 xl:grid-cols-4'} gap-4`}>
               {/* Upcoming appointments card - responsive sidebar */}
-              <Card id="tour-today-schedule" className="mb-4 shadow-sm rounded-lg lg:mb-0 lg:col-span-1 dark:bg-[#0b1020] dark:border-slate-700">
+              <Card id="tour-today-schedule" className={`mb-4 shadow-sm rounded-lg lg:mb-0 ${adminData?.role?.toLowerCase() === 'superadmin' ? 'w-full' : 'lg:col-span-1'} dark:bg-[#0b1020] dark:border-slate-700`}>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base lg:text-lg">Today&apos;s Schedule</CardTitle>
                   <CardDescription className="text-xs lg:text-sm">Upcoming appointments</CardDescription>
@@ -605,48 +826,127 @@ export default function AppointmentsPage() {
                     {todaysAppointments.map(event => (
                     <div key={`today-${event.id}`} className="p-3 border rounded-lg bg-slate-50 hover:bg-slate-100 transition-colors">
                       <div className="font-medium text-sm lg:text-base text-violet-700 mb-1">{event.title}</div>
-                      <div className="text-xs lg:text-sm text-slate-600 mb-2">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="text-xs lg:text-sm text-slate-600">
                           {format(event.start, 'h:mm a')} - {format(event.end, 'h:mm a')}
                         </div>
+                        {event.status === 'Pending' && (
+                          <Badge className="bg-yellow-500 text-xs">Pending Approval</Badge>
+                        )}
+                        {event.status === 'Finished' && (
+                          <Badge className="bg-green-500 text-xs">Completed</Badge>
+                        )}
+                        {event.status === 'Cancelled' && (
+                          <Badge variant="destructive" className="text-xs">Cancelled</Badge>
+                        )}
+                      </div>
                       <div className="flex flex-wrap gap-1">
-                          {(event.status === 'Scheduled' || event.status === 'Rescheduled') && (
+                          {event.status === 'Pending' && (
                             <>
                               <Button 
-                                key={`complete-${event.id}`}
+                                key={`approve-${event.id}`}
                                 variant="outline" 
                                 size="sm"
-                              className="text-xs px-2 py-1 h-7"
-                                onClick={() => handleCompleteAppointment(event.id)}
+                                className="text-xs px-2 py-1 h-7 bg-green-50 hover:bg-green-100 text-green-700 border-green-300"
+                                onClick={() => handleApproveAppointment(event.id)}
                               >
-                                Complete
+                                Approve
                               </Button>
                               <Button 
-                                key={`reschedule-${event.id}`}
+                                key={`reschedule-pending-${event.id}`}
                                 variant="outline" 
                                 size="sm"
-                              className="text-xs px-2 py-1 h-7"
-                              onClick={() => handleRescheduleAppointment(event.id)}
+                                className="text-xs px-2 py-1 h-7"
+                                onClick={() => handleRescheduleAppointment(event.id)}
                               >
                                 Reschedule
                               </Button>
                               <Button 
-                                key={`cancel-${event.id}`}
+                                key={`cancel-pending-${event.id}`}
                                 variant="destructive" 
                                 size="sm"
-                              className="text-xs px-2 py-1 h-7"
-                                onClick={() => {
-                                  handleCancelAppointment(event.id);
-                                }}
+                                className="text-xs px-2 py-1 h-7"
+                                onClick={() => handleCancelAppointment(event.id)}
                               >
                                 Cancel
                               </Button>
                             </>
                           )}
-                          {event.status === 'Finished' && (
-                          <Badge key={`completed-${event.id}`} className="bg-green-500 text-xs">Completed</Badge>
-                          )}
-                          {event.status === 'Cancelled' && (
-                          <Badge key={`cancelled-${event.id}`} variant="destructive" className="text-xs">Cancelled</Badge>
+                          {(event.status === 'Scheduled' || event.status === 'Rescheduled' || event.status === 'Finished') && (
+                            <>
+                              {adminData?.role?.toLowerCase() === 'superadmin' ? (
+                                // Superadmin: Only Complete button
+                                <Button 
+                                  key={`complete-${event.id}`}
+                                  variant="outline" 
+                                  size="sm"
+                                  className="text-xs px-2 py-1 h-7"
+                                  onClick={() => handleCompleteAppointment(event.id)}
+                                  disabled={event.status === 'Finished'}
+                                >
+                                  Complete
+                                </Button>
+                              ) : (
+                                // Admin: Remark (Complete), Reschedule, Cancel buttons
+                                // Note: Remark is disabled until status is Finished, Reschedule and Cancel are disabled if status is Finished
+                                <>
+                                  {event.status !== 'Finished' ? (
+                                    // Remark button disabled - show tooltip
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <span>
+                                          <Button 
+                                            key={`remark-${event.id}`}
+                                            variant="outline" 
+                                            size="sm"
+                                            className="text-xs px-2 py-1 h-7"
+                                            disabled={true}
+                                          >
+                                            Remark
+                                          </Button>
+                                        </span>
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        <p>This appointment hasn&apos;t been completed yet</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  ) : (
+                                    // Remark button enabled when status is Finished
+                                    <Button 
+                                      key={`remark-${event.id}`}
+                                      variant="outline" 
+                                      size="sm"
+                                      className="text-xs px-2 py-1 h-7"
+                                      onClick={() => handleCompleteAppointment(event.id)}
+                                    >
+                                      Remark
+                                    </Button>
+                                  )}
+                                  <Button 
+                                    key={`reschedule-${event.id}`}
+                                    variant="outline" 
+                                    size="sm"
+                                    className="text-xs px-2 py-1 h-7"
+                                    onClick={() => handleRescheduleAppointment(event.id)}
+                                    disabled={event.status === 'Finished'}
+                                  >
+                                    Reschedule
+                                  </Button>
+                                  <Button 
+                                    key={`cancel-${event.id}`}
+                                    variant="destructive" 
+                                    size="sm"
+                                    className="text-xs px-2 py-1 h-7"
+                                    onClick={() => {
+                                      handleCancelAppointment(event.id);
+                                    }}
+                                    disabled={event.status === 'Finished'}
+                                  >
+                                    Cancel
+                                  </Button>
+                                </>
+                              )}
+                            </>
                           )}
                         </div>
                       </div>
@@ -659,11 +959,13 @@ export default function AppointmentsPage() {
                   )}
                 </CardContent>
               </Card>
-              {/* Main calendar using react-big-calendar */}
+              {/* Main calendar using react-big-calendar - Hidden for superadmin */}
+              {adminData?.role?.toLowerCase() !== 'superadmin' && (
               <div className="shadow-sm rounded-lg lg:col-span-4 xl:col-span-3 h-[400px] sm:h-[500px] lg:h-[calc(100vh-200px)] bg-white dark:bg-[#0b1020]">
-                <Tabs defaultValue="active" className="w-full h-full flex flex-col">
-                    <TabsList className="mb-4 flex flex-row w-full max-w-md mx-auto justify-center bg-slate-100 dark:bg-slate-800 rounded-full shadow-sm p-1">
+                <Tabs defaultValue="active" className="w-full h-full flex flex-col" onValueChange={(value) => setActiveTab(value as 'active' | 'archived' | 'finished')}>
+                    <TabsList className="mb-4 flex flex-row w-full max-w-2xl mx-auto justify-center bg-slate-100 dark:bg-slate-800 rounded-full shadow-sm p-1">
                       <TabsTrigger value="active" className="flex-1 px-3 py-2 text-sm font-semibold rounded-full transition data-[state=active]:bg-violet-600 dark:data-[state=active]:bg-violet-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=inactive]:bg-transparent data-[state=inactive]:text-slate-600 dark:data-[state=inactive]:text-slate-300">Active</TabsTrigger>
+                      <TabsTrigger value="finished" className="flex-1 px-3 py-2 text-sm font-semibold rounded-full transition data-[state=active]:bg-violet-600 dark:data-[state=active]:bg-violet-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=inactive]:bg-transparent data-[state=inactive]:text-slate-600 dark:data-[state=inactive]:text-slate-300">Finished</TabsTrigger>
                       <TabsTrigger value="archived" className="flex-1 px-3 py-2 text-sm font-semibold rounded-full transition data-[state=active]:bg-violet-600 dark:data-[state=active]:bg-violet-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=inactive]:bg-transparent data-[state=inactive]:text-slate-600 dark:data-[state=inactive]:text-slate-300">Archived</TabsTrigger>
                   </TabsList>
 
@@ -701,15 +1003,17 @@ export default function AppointmentsPage() {
                                   >
                                     View All Appointments
                                   </button>
-                                  <button
-                                    className="w-full text-left px-2 py-2 rounded hover:bg-slate-100 text-sm"
-                                    onClick={() => {
-                                      setShowAppointmentModal(true);
-                                      setShowMonthMenu(false);
-                                    }}
-                                  >
-                                    Create Appointment
-                                  </button>
+                                  {adminData?.role?.toLowerCase() !== 'superadmin' && (
+                                    <button
+                                      className="w-full text-left px-2 py-2 rounded hover:bg-slate-100 text-sm"
+                                      onClick={() => {
+                                        setShowAppointmentModal(true);
+                                        setShowMonthMenu(false);
+                                      }}
+                                    >
+                                      Create Appointment
+                                    </button>
+                                  )}
                                 </PopoverContent>
                               </Popover>
                             ) : (
@@ -726,7 +1030,7 @@ export default function AppointmentsPage() {
                               variant="outline"
                             onClick={() => changeView('week')}
                               size="sm"
-                              className={`px-3 py-1.5 text-xs sm:text-sm ${view === 'week' ? 'ring-2 ring-violet-200' : ''}`}
+                              className={`px-3 py-1.5 text-xs sm:text-sm ${mounted && view === 'week' ? 'ring-2 ring-violet-200' : ''}`}
                           >
                             Week
                           </Button>
@@ -734,14 +1038,14 @@ export default function AppointmentsPage() {
                               variant="outline"
                             onClick={() => changeView('day')}
                               size="sm"
-                              className={`px-3 py-1.5 text-xs sm:text-sm ${view === 'day' ? 'ring-2 ring-violet-200' : ''}`}
+                              className={`px-3 py-1.5 text-xs sm:text-sm ${mounted && view === 'day' ? 'ring-2 ring-violet-200' : ''}`}
                           >
                             Day
                           </Button>
                         </div>
                       </div>
                         <div className="w-full text-center text-sm sm:text-lg font-semibold mb-3 text-violet-700">
-                          {view === 'day' 
+                          {mounted && view === 'day' 
                             ? format(date, 'EEEE, MMMM d, yyyy')
                             : format(date, 'MMMM yyyy')}
                         </div>
@@ -785,6 +1089,71 @@ export default function AppointmentsPage() {
                       </div>
                     )}
                         </div>
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="finished" className="flex-1 flex flex-col">
+                      <div className="flex-1 bg-white dark:bg-[#0b1020] rounded-lg shadow-sm border dark:border-slate-700 p-3 sm:p-4 flex flex-col">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center mb-4">
+                          <h2 className="text-lg sm:text-xl font-semibold text-violet-700">Finished Appointments</h2>
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+                            <Label htmlFor="finishedDateFilter" className="text-xs sm:text-sm text-slate-600">Filter by date:</Label>
+                            <div className="flex gap-2">
+                          <Input
+                            id="finishedDateFilter"
+                            type="date"
+                            onChange={(e) => {
+                              if (e.target.value) {
+                                const date = new Date(e.target.value);
+                                fetchFinishedAppointments(date);
+                              } else {
+                                    fetchFinishedAppointments();
+                              }
+                            }}
+                                className="w-full sm:w-auto max-w-[200px]"
+                          />
+                          <Button 
+                            variant="outline" 
+                              size="sm"
+                            onClick={() => {
+                              const dateInput = document.getElementById('finishedDateFilter') as HTMLInputElement;
+                              if (dateInput) dateInput.value = '';
+                              fetchFinishedAppointments();
+                            }}
+                                className="px-3 py-1.5 text-xs sm:text-sm"
+                          >
+                                Clear
+                          </Button>
+                        </div>
+                      </div>
+                        </div>
+                        <div className="flex-1 overflow-y-auto space-y-3">
+                        {finishedEvents.length === 0 ? (
+                            <div className="text-center py-12">
+                              <div className="text-4xl mb-3">✅</div>
+                              <p className="text-slate-500 text-sm">No finished appointments found</p>
+                            </div>
+                        ) : (
+                          finishedEvents.map((event) => (
+                            <div
+                              key={`finished-${event.id}`}
+                              className="p-3 sm:p-4 border rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/60 dark:bg-slate-800/40 dark:border-slate-700 transition-colors"
+                            >
+                                <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-start">
+                                  <div className="flex-1">
+                                    <div className="font-medium text-sm sm:text-base text-violet-700 dark:text-violet-300 mb-1">{event.title}</div>
+                                    <div className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 space-y-0.5">
+                                      <div>Patient: {event.patient.firstName} {event.patient.lastName}</div>
+                                      <div>Date: {format(new Date(event.date), 'MMMM d, yyyy')}</div>
+                                      <div>Time: {event.startTime} - {event.endTime}</div>
+                                  </div>
+                                  </div>
+                                  <Badge key={`finished-badge-${event.id}`} variant="default" className="self-start text-xs bg-green-600 hover:bg-green-700">Finished</Badge>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
                     </div>
                   </TabsContent>
 
@@ -854,6 +1223,7 @@ export default function AppointmentsPage() {
                   </TabsContent>
                 </Tabs>
               </div>
+              )}
             </div>
           </div>
         </div>
@@ -895,6 +1265,50 @@ export default function AppointmentsPage() {
         date={date}
       />
 
+      {/* Cancel Appointment Dialog */}
+      <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl">Cancel Appointment</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="cancelReason">Reason for Cancellation</Label>
+              <Textarea
+                id="cancelReason"
+                placeholder="Please provide a reason for cancelling this appointment..."
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                rows={4}
+                autoFocus
+              />
+            </div>
+          </div>
+          <DialogFooter className="flex flex-col sm:flex-row gap-2">
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => {
+                setShowCancelDialog(false);
+                setAppointmentToCancel(null);
+                setCancelReason('');
+              }}
+            >
+              Keep Appointment
+            </Button>
+            <Button
+              variant="destructive"
+              className="flex-1"
+              onClick={handleConfirmCancel}
+              disabled={!cancelReason.trim()}
+            >
+              Cancel Appointment
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </SidebarProvider>
+    </AuthGuard>
   );
 } 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
@@ -17,9 +17,113 @@ interface ReplyDialogProps {
   onReplySuccess?: (inquiryId: string) => void;
 }
 
+// Predefined reply messages for each subject
+const predefinedReplies: Record<string, string> = {
+  'Orthodontic Braces': `Thank you for your inquiry regarding orthodontic braces. We offer comprehensive orthodontic treatment including traditional braces, clear aligners, and other orthodontic solutions.
+
+Our experienced orthodontist will assess your specific needs during a consultation and create a personalized treatment plan. The duration and cost of treatment vary depending on individual cases.
+
+We would be happy to schedule a consultation to discuss your orthodontic needs in detail. Please let us know your preferred date and time, and we will arrange an appointment for you.`,
+
+  'Cleaning/Oral Prophylaxis': `Thank you for your interest in our cleaning and oral prophylaxis services. Regular dental cleanings are essential for maintaining optimal oral health.
+
+We recommend professional cleanings every 6 months to prevent plaque buildup, gum disease, and other dental issues. Our hygienists use the latest techniques and equipment to ensure a thorough and comfortable cleaning experience.
+
+We would be delighted to schedule your cleaning appointment. Please let us know your preferred date and time, and we will confirm your appointment.`,
+
+  'Extraction': `Thank you for contacting us regarding tooth extraction. We understand that tooth extraction can be a concern, and we are here to help.
+
+Our experienced dentists perform extractions with care and precision, ensuring your comfort throughout the procedure. We offer various sedation options if needed.
+
+To determine the best approach for your situation, we recommend scheduling a consultation. During this visit, we will examine the affected tooth, discuss treatment options, and address any concerns you may have.`,
+
+  'Teeth Whitening': `Thank you for your inquiry about teeth whitening services. We offer professional teeth whitening treatments that can significantly brighten your smile.
+
+We provide both in-office whitening procedures and take-home whitening kits. Our team will help you choose the option that best fits your needs and lifestyle.
+
+During a consultation, we can assess your current tooth color and discuss the expected results. We would be happy to schedule an appointment to discuss your whitening options.`,
+
+  'Restoration/Pasta': `Thank you for your inquiry regarding dental restoration (pasta/filling) services. We provide high-quality dental fillings using modern materials that are both durable and aesthetically pleasing.
+
+Our restorations are designed to restore the function and appearance of your teeth while maintaining a natural look. We use composite resin and other advanced materials that match your natural tooth color.
+
+If you have a cavity or damaged tooth that needs restoration, we recommend scheduling an appointment. Our dentist will examine the affected area and recommend the best treatment option for you.`,
+
+  'Dental Crown': `Thank you for your interest in dental crown services. Dental crowns are an excellent solution for restoring damaged, weakened, or discolored teeth.
+
+We offer various types of crowns including porcelain, ceramic, and metal crowns, each with their own benefits. Our team will help you choose the best option based on your specific needs and preferences.
+
+The crown procedure typically requires two visits: one for preparation and impression, and another for placement. We would be happy to schedule a consultation to discuss your crown treatment in detail.`,
+
+  'Fixed Bridge': `Thank you for your inquiry about fixed bridge services. A fixed bridge is an effective solution for replacing one or more missing teeth.
+
+Our bridges are custom-made to match your natural teeth in both appearance and function. They are securely anchored to adjacent teeth, providing a stable and long-lasting solution.
+
+We would be happy to schedule a consultation to assess your situation and discuss whether a fixed bridge is the right option for you. During the visit, we will explain the procedure, timeline, and answer any questions you may have.`,
+
+  'Veneers': `Thank you for your interest in dental veneers. Veneers are a popular cosmetic solution for improving the appearance of your smile.
+
+We offer porcelain and composite veneers that can address various cosmetic concerns such as discoloration, gaps, chips, or misalignment. Veneers are custom-made to match your desired smile.
+
+A consultation will allow us to assess your teeth and discuss your smile goals. We can show you what your new smile could look like and create a treatment plan tailored to your needs.`,
+
+  'Denture': `Thank you for your inquiry about denture services. We provide both complete and partial dentures to restore your smile and ability to chew comfortably.
+
+Our dentures are custom-made to fit your mouth perfectly and are designed to look natural and feel comfortable. We use high-quality materials to ensure durability and aesthetics.
+
+We would be happy to schedule a consultation to discuss your denture options. During the visit, we will take impressions, discuss your preferences, and create a treatment plan that meets your needs.`,
+
+  'General Inquiry': `Thank you for contacting MA Florencio Dental Clinic. We appreciate your interest in our services.
+
+We are committed to providing high-quality dental care in a comfortable and welcoming environment. Our team of experienced professionals is here to help you achieve and maintain optimal oral health.
+
+If you have any specific questions or would like to schedule an appointment, please feel free to contact us. We look forward to serving you and your family's dental needs.`,
+
+  'Appointment Scheduling': `Thank you for your interest in scheduling an appointment with us. We are happy to help you find a convenient time for your visit.
+
+Our clinic offers flexible scheduling to accommodate your busy lifestyle. We have appointments available during weekdays and can discuss weekend availability if needed.
+
+Please let us know your preferred date and time, and we will do our best to accommodate your request. You can also call us directly to speak with our scheduling team.`,
+
+  'Emergency': `Thank you for contacting us regarding your dental emergency. We understand that dental emergencies require immediate attention, and we are here to help.
+
+For urgent dental issues, we recommend calling our clinic directly at your earliest convenience. Our team will assess the situation and provide guidance on the next steps.
+
+If you are experiencing severe pain, swelling, or trauma, please seek immediate care. We will do our best to see you as soon as possible or direct you to the appropriate emergency care facility.`,
+
+  'Insurance Questions': `Thank you for your inquiry regarding dental insurance. We understand that insurance coverage can be confusing, and we are here to help clarify your benefits.
+
+We accept most major dental insurance plans and will work with your insurance provider to maximize your benefits. Our team can help you understand your coverage and estimate your out-of-pocket costs.
+
+Please provide us with your insurance information, and we can verify your benefits before your appointment. If you have specific questions about your coverage, feel free to contact our office.`,
+
+  'Payment Options': `Thank you for your inquiry about payment options. We want to make dental care accessible and affordable for all our patients.
+
+We accept various payment methods including cash, credit cards, and debit cards. We also offer flexible payment plans for more extensive treatments.
+
+For your convenience, we can discuss payment options during your consultation. Our team will work with you to find a payment arrangement that fits your budget. Please don't hesitate to ask about our payment plans.`,
+
+  'Other': `Thank you for contacting MA Florencio Dental Clinic. We appreciate you reaching out to us.
+
+We are here to assist you with any questions or concerns you may have about our services, procedures, or general dental care. Our team is committed to providing you with the information and support you need.
+
+Please feel free to provide more details about your inquiry, and we will be happy to assist you further. You can also call us directly if you prefer to speak with someone in person.`
+};
+
 export function ReplyDialog({ inquiry, open, onOpenChange, onReplySuccess }: ReplyDialogProps) {
   const [replyMessage, setReplyMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  // Auto-populate reply message based on inquiry subject
+  useEffect(() => {
+    if (inquiry && open && inquiry.subject) {
+      const predefinedMessage = predefinedReplies[inquiry.subject] || predefinedReplies['Other'];
+      setReplyMessage(predefinedMessage);
+    } else if (!open) {
+      // Clear message when dialog closes
+      setReplyMessage('');
+    }
+  }, [inquiry, open]);
 
   const handleSendReply = async () => {
     if (!inquiry || !replyMessage.trim()) {
@@ -133,9 +237,22 @@ export function ReplyDialog({ inquiry, open, onOpenChange, onReplySuccess }: Rep
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="replyMessage" className="text-xs sm:text-sm font-medium dark:text-gray-300">
-                  Reply Message
-                </Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="replyMessage" className="text-xs sm:text-sm font-medium dark:text-gray-300">
+                    Reply Message
+                  </Label>
+                  {inquiry?.subject && predefinedReplies[inquiry.subject] && replyMessage === predefinedReplies[inquiry.subject] && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setReplyMessage('')}
+                      className="text-xs h-6 px-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                    >
+                      Clear template
+                    </Button>
+                  )}
+                </div>
                 <Textarea
                   id="replyMessage"
                   placeholder="Type your reply here..."
@@ -144,9 +261,16 @@ export function ReplyDialog({ inquiry, open, onOpenChange, onReplySuccess }: Rep
                   className="min-h-[100px] sm:min-h-[120px] resize-none text-sm sm:text-base dark:bg-gray-800 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
                   disabled={isLoading}
                 />
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Your reply will be sent to {inquiry.email}
-                </p>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Your reply will be sent to {inquiry.email}
+                  </p>
+                  {inquiry?.subject && predefinedReplies[inquiry.subject] && replyMessage === predefinedReplies[inquiry.subject] && (
+                    <p className="text-xs text-blue-600 dark:text-blue-400">
+                      Using predefined template
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
 

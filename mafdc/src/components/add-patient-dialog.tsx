@@ -32,7 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { IconPlus } from "@tabler/icons-react"
+import { IconPlus, IconX } from "@tabler/icons-react"
 
 type CaseStatus = "Active" | "Completed" | "Cancelled";
 
@@ -100,13 +100,41 @@ interface AddPatientDialogProps {
 
 export function AddPatientDialog({ onPatientAdded }: AddPatientDialogProps) {
   const [open, setOpen] = React.useState(false)
-  const { createPatient } = usePatients()
+  const { createPatient, uploadCaseImages } = usePatients()
   const [cases, setCases] = React.useState<FormValues["cases"]>([{ 
     title: "", 
     description: "", 
     treatmentPlan: "", 
     status: "Active" 
   }])
+  const [caseImages, setCaseImages] = React.useState<Record<number, File[]>>({})
+
+  const handleImageChange = (
+    caseIndex: number,
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const files = event.target.files;
+    if (files) {
+      const fileArray = Array.from(files);
+      setCaseImages(prev => ({
+        ...prev,
+        [caseIndex]: [...(prev[caseIndex] || []), ...fileArray]
+      }));
+    }
+  };
+
+  const removeImage = (caseIndex: number, imageIndex: number) => {
+    setCaseImages(prev => {
+      const newImages = { ...prev };
+      if (newImages[caseIndex]) {
+        newImages[caseIndex] = newImages[caseIndex].filter((_, i) => i !== imageIndex);
+        if (newImages[caseIndex].length === 0) {
+          delete newImages[caseIndex];
+        }
+      }
+      return newImages;
+    });
+  };
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -155,12 +183,52 @@ export function AddPatientDialog({ onPatientAdded }: AddPatientDialogProps) {
     const newCases = cases.filter((_, i) => i !== index)
     setCases(newCases)
     form.setValue("cases", newCases)
+    // Remove images for this case
+    setCaseImages(prev => {
+      const newImages = { ...prev };
+      delete newImages[index];
+      // Reindex remaining cases
+      const reindexed: Record<number, File[]> = {};
+      Object.keys(newImages).forEach(key => {
+        const oldIndex = parseInt(key);
+        if (oldIndex > index) {
+          reindexed[oldIndex - 1] = newImages[oldIndex];
+        } else if (oldIndex < index) {
+          reindexed[oldIndex] = newImages[oldIndex];
+        }
+      });
+      return reindexed;
+    });
   }
 
   async function onSubmit(values: FormValues) {
     try {
-      await createPatient(values)
+      // Create patient first (without images)
+      const result = await createPatient(values)
+      
+      // Upload images for each case if patient was created successfully
+      if (result && result.patient && result.patient._id) {
+        const patientId = result.patient._id;
+        
+        // Upload images for each case
+        for (let caseIndex = 0; caseIndex < cases.length; caseIndex++) {
+          const images = caseImages[caseIndex];
+          if (images && images.length > 0 && result.patient.cases && result.patient.cases[caseIndex]) {
+            const caseId = result.patient.cases[caseIndex]._id;
+            if (caseId) {
+              try {
+                await uploadCaseImages(patientId, caseId, images);
+              } catch (imageError) {
+                console.error(`Failed to upload images for case ${caseIndex}:`, imageError);
+                // Continue with other cases even if one fails
+              }
+            }
+          }
+        }
+      }
+      
       form.reset()
+      setCaseImages({})
       setOpen(false)
       if (onPatientAdded) {
         onPatientAdded()
@@ -330,6 +398,34 @@ export function AddPatientDialog({ onPatientAdded }: AddPatientDialogProps) {
                       </FormItem>
                     )}
                   />
+                  <div className="space-y-2">
+                    <FormLabel>X-Ray/Images (Optional)</FormLabel>
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={(e) => handleImageChange(index, e)}
+                      className="cursor-pointer"
+                    />
+                    {caseImages[index] && caseImages[index].length > 0 && (
+                      <div className="space-y-2 mt-2">
+                        {caseImages[index].map((file, imgIndex) => (
+                          <div key={imgIndex} className="flex items-center justify-between p-2 bg-slate-100 rounded text-sm">
+                            <span className="truncate flex-1">{file.name}</span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeImage(index, imgIndex)}
+                              className="text-red-500 hover:text-red-700 ml-2 h-6 w-6 p-0"
+                            >
+                              <IconX className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

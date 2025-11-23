@@ -29,6 +29,7 @@ import {
 import { useLogs } from "@/hooks/logs/logsHooks";
 import { Log, LogAction, EntityType, LogStats } from "@/interface/logs";
 import { toast } from "sonner";
+import AuthGuard from '@/components/AuthGuard';
 
 export default function LogsPage() {
   const { isLoading: authLoading } = useAuth(true); // Require authentication
@@ -171,7 +172,7 @@ export default function LogsPage() {
     } finally {
       setRefreshing(false);
     }
-  }, [getLogs]);
+  }, [getLogs, filters]);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -190,14 +191,14 @@ export default function LogsPage() {
       fetchLogs();
       fetchStats();
     }
-  }, [authLoading]);
+  }, [authLoading, fetchLogs, fetchStats]);
 
   // Fetch logs when filters change
   useEffect(() => {
     if (!authLoading) {
       fetchLogs();
     }
-  }, [filters]);
+  }, [authLoading, fetchLogs, filters]);
 
   const handleViewLog = (log: Log) => {
     setSelectedLog(log);
@@ -231,7 +232,8 @@ export default function LogsPage() {
   }
 
   return (
-    <SidebarProvider>
+    <AuthGuard>
+      <SidebarProvider>
       <AppSidebar variant="inset" />
       <SidebarInset>
         <SiteHeader />
@@ -614,5 +616,6 @@ export default function LogsPage() {
         </DialogContent>
       </Dialog>
     </SidebarProvider>
+    </AuthGuard>
   );
 }

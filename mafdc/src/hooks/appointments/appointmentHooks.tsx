@@ -91,6 +91,38 @@ export const useAppointments = () => {
     }
   }, [setLoading, setError]);
 
+  // Public version of getAppointments for online appointment page (no auth required)
+  const getPublicAppointments = useCallback(async (filters?: { date?: string; status?: string }) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const params = new URLSearchParams();
+      if (filters?.date) params.append('date', filters.date);
+      if (filters?.status) params.append('status', filters.status);
+
+      // Use public endpoint (no auth required)
+      const response = await axios.get(`${API_URL}/appointments/public?${params.toString()}`);
+      
+      // Check if response has encrypted data
+      if (response.data.data) {
+        // Decrypt the response
+        const decryptedData = decrypt(response.data.data);
+        return decryptedData;
+      } else {
+        // Handle direct response (if not encrypted)
+        return response.data;
+      }
+    } catch (err: unknown) {
+      const apiError = err as ApiError;
+      console.error('Error fetching public appointments:', apiError);
+      // Don't throw error for public endpoint, return empty array instead
+      setError(null);
+      return [];
+    } finally {
+      setLoading(false);
+    }
+  }, [setLoading, setError]);
+
   const getArchivedAppointments = useCallback(async (filters?: { date?: string }) => {
     try {
       setLoading(true);
@@ -174,11 +206,21 @@ export const useAppointments = () => {
     }
   }, []);
 
-  const cancelAppointment = useCallback(async (id: string) => {
+  const cancelAppointment = useCallback(async (id: string, cancellationReason?: string) => {
     try {
       setLoading(true);
       setError(null);
-      const response = await protectedApi.delete(`/appointments/${id}`);
+      
+      let response;
+      if (cancellationReason) {
+        // Use PUT request to cancel with reason
+        response = await protectedApi.put(`/appointments/${id}/cancel`, {
+          data: encrypt({ cancellationReason })
+        });
+      } else {
+        // Use original DELETE for cancellation without reason
+        response = await protectedApi.delete(`/appointments/${id}`);
+      }
       
       // Decrypt the response
       const decryptedData = decrypt(response.data.data);
@@ -245,19 +287,85 @@ export const useAppointments = () => {
     }
   }, []);
 
+  const getPatientAppointments = useCallback(async (patientId: string, includeHistory: boolean = false) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Use public endpoint for getting patient appointments (no auth required)
+      const url = `${API_URL}/appointments/patient/${patientId}/public${includeHistory ? '?includeHistory=true' : ''}`;
+      const response = await axios.get(url);
+      
+      // Check if response has encrypted data
+      if (response.data.data) {
+        // Decrypt the response
+        const decryptedData = decrypt(response.data.data);
+        return decryptedData;
+      } else {
+        // Handle direct response (if not encrypted)
+        return response.data;
+      }
+    } catch (err: unknown) {
+      const apiError = err as ApiError;
+      console.error('Error fetching patient appointments:', apiError);
+      
+      // If API endpoint doesn't exist or fails, return empty array
+      setError(null); // Don't set error for fallback
+      return [];
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   const getAvailableSlots = useCallback(async (date: string) => {
     try {
       setLoading(true);
       setError(null);
-      const response = await axios.get(`${API_URL}/appointments/slots/${date}`);
       
-      // Decrypt the response
-      const decryptedData = decrypt(response.data.data);
-      return decryptedData as TimeSlot[];
+      console.log('Attempting to fetch slots from:', `${API_URL}/appointments/slots/${date}`);
+      
+      // Use public endpoint for online appointments (no auth required)
+      const response = await axios.get(`${API_URL}/appointments/slots/${date}`, {
+        timeout: 5000, // 5 second timeout
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+      
+      console.log('API response received:', response.status);
+      
+      // Check if response has encrypted data
+      if (response.data.data) {
+        // Decrypt the response
+        const decryptedData = decrypt(response.data.data);
+        console.log('Decrypted slots data:', decryptedData);
+        return decryptedData as TimeSlot[];
+      } else {
+        // Handle direct response (if not encrypted)
+        console.log('Direct response data:', response.data);
+        return response.data as TimeSlot[];
+      }
     } catch (err: unknown) {
       const apiError = err as ApiError;
-      setError(apiError.response?.data?.message || apiError.message || 'Failed to fetch available slots');
-      throw apiError;
+      console.error('Error fetching available slots:', apiError);
+
+      // If API endpoint doesn't exist or fails, return default slots
+      // Generate default available slots (all available)
+      const defaultSlots = [];
+      for (let hour = 9; hour < 17; hour++) {
+        for (let minute = 0; minute < 60; minute += 30) {
+          const time = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+          defaultSlots.push({
+            startTime: time,
+            endTime: `${hour + (minute === 30 ? 1 : 0)}:${minute === 30 ? '00' : '30'}`,
+            available: true
+          });
+        }
+      }
+      
+      console.log('Returning default slots due to API error:', defaultSlots.length, 'slots');
+      setError(null); // Don't set error for fallback
+      return defaultSlots as TimeSlot[];
     } finally {
       setLoading(false);
     }
@@ -399,6 +507,7 @@ export const useAppointments = () => {
     createAppointment,
     createPublicAppointment,
     getAppointments,
+    getPublicAppointments,
     getArchivedAppointments,
     getAppointmentById,
     updateAppointment,
@@ -407,6 +516,7 @@ export const useAppointments = () => {
     createAppointmentNotes,
     getAppointmentNotes,
     getAvailableSlots,
+    getPatientAppointments,
     rescheduleAppointment,
     getMissedAppointments,
     updateMissedAppointments,
@@ -416,6 +526,7 @@ export const useAppointments = () => {
     createAppointment,
     createPublicAppointment,
     getAppointments,
+    getPublicAppointments,
     getArchivedAppointments,
     getAppointmentById,
     updateAppointment,
@@ -424,6 +535,7 @@ export const useAppointments = () => {
     createAppointmentNotes,
     getAppointmentNotes,
     getAvailableSlots,
+    getPatientAppointments,
     rescheduleAppointment,
     getMissedAppointments,
     updateMissedAppointments,

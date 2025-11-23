@@ -14,6 +14,7 @@ import {
 
 export function NavSecondary({
   items,
+  pathname,
   ...props
 }: {
   items: {
@@ -22,28 +23,36 @@ export function NavSecondary({
     icon: Icon
     onClick?: () => void
   }[]
+  pathname: string
 } & React.ComponentPropsWithoutRef<typeof SidebarGroup>) {
   return (
     <SidebarGroup {...props}>
       <SidebarGroupContent>
         <SidebarMenu>
-          {items.map((item) => (
-            <SidebarMenuItem key={item.title}>
-              {item.onClick ? (
-                <SidebarMenuButton onClick={item.onClick}>
-                  <item.icon />
-                  <span>{item.title}</span>
-                </SidebarMenuButton>
-              ) : (
-                <SidebarMenuButton asChild>
-                  <Link href={item.url}>
+          {items.map((item) => {
+            const isActive = !item.onClick && (pathname === item.url || pathname.startsWith(item.url + '/'));
+            return (
+              <SidebarMenuItem key={item.title}>
+                {item.onClick ? (
+                  <SidebarMenuButton onClick={item.onClick}>
                     <item.icon />
                     <span>{item.title}</span>
-                  </Link>
-                </SidebarMenuButton>
-              )}
-            </SidebarMenuItem>
-          ))}
+                  </SidebarMenuButton>
+                ) : (
+                  <SidebarMenuButton 
+                    asChild 
+                    isActive={isActive}
+                    className={isActive ? "!bg-violet-400 !text-white hover:!bg-violet-500" : ""}
+                  >
+                    <Link href={item.url}>
+                      <item.icon />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                )}
+              </SidebarMenuItem>
+            );
+          })}
         </SidebarMenu>
       </SidebarGroupContent>
     </SidebarGroup>

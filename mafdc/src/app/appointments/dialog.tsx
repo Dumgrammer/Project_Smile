@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CheckCircle2 } from "lucide-react";
-import { format } from 'date-fns';
+import { format, isToday } from 'date-fns';
 import { PatientSearch } from "@/components/patient-search";
 import { AppointmentDialogsProps } from '@/interface/appointment';
 
@@ -55,7 +55,105 @@ export function AppointmentDialogs({
     return day < today;
   };
 
+  const isPastTime = (targetDate: Date, timeString: string) => {
+    const now = new Date();
+    const selectedDate = new Date(targetDate);
+    
+    // If the selected date is not today, don't check time
+    if (!isToday(selectedDate)) {
+      return false;
+    }
+    
+    // Parse the time string
+    const [hours, minutes] = timeString.split(':').map(Number);
+    const selectedDateTime = new Date(selectedDate);
+    selectedDateTime.setHours(hours, minutes, 0, 0);
+    
+    // Check if the selected time is in the past
+    return selectedDateTime <= now;
+  };
+
+  const getMinTimeForToday = () => {
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+    
+    // Round up to next 30-minute interval (00 or 30)
+    let roundedMinute;
+    if (currentMinute <= 0) {
+      roundedMinute = 0;
+    } else if (currentMinute <= 30) {
+      roundedMinute = 30;
+    } else {
+      roundedMinute = 0;
+    }
+    
+    let hour = currentHour;
+    let minute = roundedMinute;
+    
+    // If we need to go to next hour
+    if (currentMinute > 30) {
+      hour += 1;
+      minute = 0;
+    }
+    
+    // Format as HH:MM
+    return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+  };
+
+
+  // Generate time options for 30-minute intervals
+  const generateTimeOptions = () => {
+    const options = [];
+    for (let hour = 9; hour <= 16; hour++) {
+      // Add :00 option
+      if (hour < 16 || (hour === 16 && 0 <= 30)) {
+        const time00 = `${hour.toString().padStart(2, '0')}:00`;
+        options.push({ value: time00, label: formatTimeDisplay(time00) });
+      }
+      // Add :30 option
+      if (hour < 16 || (hour === 16 && 30 <= 30)) {
+        const time30 = `${hour.toString().padStart(2, '0')}:30`;
+        options.push({ value: time30, label: formatTimeDisplay(time30) });
+      }
+    }
+    return options;
+  };
+
+  const formatTimeDisplay = (time24: string) => {
+    const [hours, minutes] = time24.split(':').map(Number);
+    const period = hours >= 12 ? 'PM' : 'AM';
+    const displayHour = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+    return `${displayHour}:${minutes.toString().padStart(2, '0')} ${period}`;
+  };
+
+  const timeOptions = generateTimeOptions();
+
+  // Generate end time options for 15-minute intervals
+  const generateEndTimeOptions = () => {
+    const options = [];
+    for (let hour = 9; hour <= 17; hour++) {
+      for (let minute = 0; minute < 60; minute += 15) {
+        // Skip times beyond 17:00
+        if (hour === 17 && minute > 0) break;
+        
+        const timeValue = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+        options.push({ 
+          value: timeValue, 
+          label: formatTimeDisplay(timeValue) 
+        });
+      }
+    }
+    return options;
+  };
+
+  const endTimeOptions = generateEndTimeOptions();
+
   const isPastSelectedDay = isPastDay(newAppointment.date);
+  const isPastSelectedTime = isPastTime(newAppointment.date, newAppointment.startTime);
+  const isInvalidAppointment = isPastSelectedDay || isPastSelectedTime;
+  const isTodaySelected = isToday(newAppointment.date);
+  const minTimeForToday = isTodaySelected ? getMinTimeForToday() : '09:00';
 
   return (
     <>
@@ -100,31 +198,50 @@ export function AppointmentDialogs({
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="startTime">Start Time</Label>
-                <Input 
-                  id="startTime" 
-                  type="time" 
-                  min="09:00" 
-                  max="16:45" 
-                  step={900}
+                <Select 
                   value={newAppointment.startTime}
-                  onChange={(e) => setNewAppointment({...newAppointment, startTime: e.target.value})}
-                />
+                  onValueChange={(value) => setNewAppointment({...newAppointment, startTime: value})}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select start time" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {timeOptions
+                      .filter(option => !isTodaySelected || option.value >= minTimeForToday)
+                      .map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="endTime">End Time</Label>
-                <Input 
-                  id="endTime" 
-                  type="time" 
-                  min="09:15" 
-                  max="17:00" 
-                  step={900}
+                <Select 
                   value={newAppointment.endTime}
-                  onChange={(e) => setNewAppointment({...newAppointment, endTime: e.target.value})}
-                />
+                  onValueChange={(value) => setNewAppointment({...newAppointment, endTime: value})}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select end time" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {endTimeOptions
+                      .filter(option => option.value > newAppointment.startTime)
+                      .map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             {isPastSelectedDay && (
               <div className="text-red-600 text-sm">You can&apos;t schedule on a past day.</div>
+            )}
+            {isPastSelectedTime && !isPastSelectedDay && (
+              <div className="text-red-600 text-sm">You can&apos;t schedule at a time that has already passed today.</div>
             )}
           </div>
           <DialogFooter className="flex flex-col sm:flex-row gap-2">
@@ -138,7 +255,7 @@ export function AppointmentDialogs({
             <Button 
               className="flex-1"
               onClick={handleCreateAppointment} 
-              disabled={isPastSelectedDay}
+              disabled={isInvalidAppointment}
             >
               Create Appointment
             </Button>
@@ -202,39 +319,47 @@ export function AppointmentDialogs({
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="editStartTime">Start Time</Label>
-                  <Input 
-                    id="editStartTime" 
-                    type="time" 
-                    min="09:00" 
-                    max="16:45" 
-                    step={900}
+                  <Select 
                     value={selectedAppointment ? format(selectedAppointment.start, 'HH:mm') : ''}
-                    onChange={(e) => {
+                    onValueChange={(value) => {
                       if (selectedAppointment) {
-                        const [hours, minutes] = e.target.value.split(':');
+                        const [hours, minutes] = value.split(':');
                         const newStart = new Date(selectedAppointment.start);
                         newStart.setHours(parseInt(hours), parseInt(minutes));
+                        
+                        // Ensure end time is on the same date as start time
+                        const newEnd = new Date(newStart);
+                        newEnd.setHours(selectedAppointment.end.getHours(), selectedAppointment.end.getMinutes());
+                        
                         setSelectedAppointment({
                           ...selectedAppointment,
-                          start: newStart
+                          start: newStart,
+                          end: newEnd
                         });
                       }
                     }}
-                  />
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select start time" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {timeOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="editEndTime">End Time</Label>
-                  <Input 
-                    id="editEndTime" 
-                    type="time" 
-                    min="09:15" 
-                    max="17:00" 
-                    step={900}
+                  <Select 
                     value={selectedAppointment ? format(selectedAppointment.end, 'HH:mm') : ''}
-                    onChange={(e) => {
+                    onValueChange={(value) => {
                       if (selectedAppointment) {
-                        const [hours, minutes] = e.target.value.split(':');
-                        const newEnd = new Date(selectedAppointment.end);
+                        const [hours, minutes] = value.split(':');
+                        // Ensure end time is on the same date as start time
+                        const newEnd = new Date(selectedAppointment.start);
                         newEnd.setHours(parseInt(hours), parseInt(minutes));
                         setSelectedAppointment({
                           ...selectedAppointment,
@@ -242,7 +367,20 @@ export function AppointmentDialogs({
                         });
                       }
                     }}
-                  />
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select end time" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {endTimeOptions
+                        .filter(option => selectedAppointment ? option.value > format(selectedAppointment.start, 'HH:mm') : true)
+                        .map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
               <div className="grid gap-2">
@@ -330,28 +468,6 @@ export function AppointmentDialogs({
                     reminderNotes: e.target.value
                   })}
                 />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="paymentStatus">Payment Status</Label>
-                <Select
-                  value={appointmentNotes.payment.status}
-                  onValueChange={(value: 'Paid' | 'Pending' | 'Partial') => setAppointmentNotes({
-                    ...appointmentNotes,
-                    payment: {
-                      ...appointmentNotes.payment,
-                      status: value
-                    }
-                  })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select payment status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Paid">Paid</SelectItem>
-                    <SelectItem value="Pending">Pending</SelectItem>
-                    <SelectItem value="Partial">Partial</SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
             </div>
           )}

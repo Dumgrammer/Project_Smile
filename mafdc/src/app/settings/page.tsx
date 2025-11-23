@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
+import AuthGuard from '@/components/AuthGuard';
 
 type FontSizeKey = 'sm' | 'md' | 'lg' | 'xl';
 
@@ -56,7 +57,8 @@ export default function SettingsPage() {
   };
 
   return (
-    <SidebarProvider>
+    <AuthGuard>
+      <SidebarProvider>
       <AppSidebar variant="inset" />
       <SidebarInset>
         <SiteHeader />
@@ -101,6 +103,7 @@ export default function SettingsPage() {
         </div>
       </SidebarInset>
     </SidebarProvider>
+    </AuthGuard>
   );
 }
 

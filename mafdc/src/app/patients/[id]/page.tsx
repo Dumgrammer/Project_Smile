@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { usePatients } from '@/hooks/patients/patientHooks';
 import { useAuth } from '@/hooks/useAuth';
 import { AppSidebar } from "@/components/app-sidebar";
@@ -12,11 +13,12 @@ import {
 } from "@/components/ui/sidebar";
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { IconArrowLeft, IconCircleCheckFilled, IconLoader } from '@tabler/icons-react';
+import { IconArrowLeft, IconCircleCheckFilled, IconLoader, IconPhoto, IconX } from '@tabler/icons-react';
 import { use } from 'react';
 import { usePatientAppointments } from '@/hooks/appointments/usePatientAppointments';
 import { format } from 'date-fns';
 import type { Patient } from '@/interface/patient';
+import AuthGuard from '@/components/AuthGuard';
 
 import {
   Select,
@@ -119,6 +121,7 @@ export default function PatientDetails({
   const [sortBy, setSortBy] = useState('date');
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [selectedMonthYear, setSelectedMonthYear] = useState('All');
+  const [selectedImage, setSelectedImage] = useState<{ url: string; name: string } | null>(null);
 
   // Unwrap the params promise
   const resolvedParams = use(params);
@@ -241,10 +244,11 @@ export default function PatientDetails({
     : `${patient.firstName} ${patient.lastName}`;
 
   return (
-    <SidebarProvider
-      style={{
-        "--sidebar-width": "calc(var(--spacing) * 72)",
-        "--header-height": "calc(var(--spacing) * 12)",
+    <AuthGuard>
+      <SidebarProvider
+        style={{
+          "--sidebar-width": "calc(var(--spacing) * 72)",
+          "--header-height": "calc(var(--spacing) * 12)",
       } as React.CSSProperties}
     >
       <AppSidebar variant="inset" />
@@ -490,6 +494,80 @@ export default function PatientDetails({
                                 <span className="font-medium">Treatment Plan:</span> {caseItem.treatmentPlan}
                               </p>
                             )}
+                            
+                            {/* Images Section */}
+                            <div className="mt-4 pt-4 border-t border-violet-200">
+                              <p className="text-sm font-medium text-violet-700 mb-2">X-Ray/Images</p>
+                              {caseItem.images && caseItem.images.length > 0 ? (
+                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                                  {caseItem.images.map((image, imgIndex) => {
+                                    // Construct image URL
+                                    const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api/v1', '') || 'http://localhost:8080';
+                                    let imageUrl = '';
+                                    
+                                    if (image.url) {
+                                      imageUrl = image.url.startsWith('http') 
+                                        ? image.url 
+                                        : `${baseUrl}${image.url.startsWith('/') ? image.url : '/' + image.url}`;
+                                    } else if (image.filename) {
+                                      imageUrl = `${baseUrl}/uploads/patients/${image.filename}`;
+                                    } else if (image.path) {
+                                      // Fallback to path if filename not available
+                                      imageUrl = image.path.startsWith('http') 
+                                        ? image.path 
+                                        : `${baseUrl}${image.path.startsWith('/') ? image.path : '/' + image.path}`;
+                                    }
+                                    
+                                    const uniqueImageId = image._id || `${caseItem._id || index}-${imgIndex}-${image.filename || imgIndex}`;
+                                    
+                                    return (
+                                      <div 
+                                        key={uniqueImageId} 
+                                        className="relative group cursor-pointer"
+                                        onClick={() => setSelectedImage({ 
+                                          url: imageUrl, 
+                                          name: image.originalName || image.filename || 'Image' 
+                                        })}
+                                      >
+                                        <div className="aspect-square rounded-lg overflow-hidden border-2 border-violet-200 hover:border-violet-400 transition-all bg-white shadow-sm hover:shadow-md relative">
+                                          {imageUrl ? (
+                                            <>
+                                              <Image 
+                                                src={imageUrl} 
+                                                alt={image.originalName || image.filename || 'Case image'}
+                                                fill
+                                                className="object-cover transition-transform duration-300 group-hover:scale-105 z-10"
+                                                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                                                unoptimized
+                                                onError={(e) => {
+                                                  const target = e.target as HTMLImageElement;
+                                                  target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="200"%3E%3Crect width="200" height="200" fill="%23e5e7eb"/%3E%3Ctext x="100" y="100" text-anchor="middle" dy=".3em" fill="%239ca3af" font-size="14"%3EFailed to load%3C/text%3E%3C/svg%3E';
+                                                }}
+                                              />
+                                              {/* Fallback background in case image doesn't load */}
+                                              <div className="absolute inset-0 bg-slate-100 z-0"></div>
+                                            </>
+                                          ) : (
+                                            <div className="w-full h-full flex items-center justify-center bg-slate-100">
+                                              <IconPhoto className="text-slate-400" size={32} />
+                                            </div>
+                                          )}
+                                        </div>
+                                        {/* Hover overlay */}
+                                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-opacity rounded-lg flex items-center justify-center pointer-events-none">
+                                          <IconPhoto className="text-white opacity-0 group-hover:opacity-100 transition-opacity" size={32} />
+                                        </div>
+                                        <p className="text-xs text-slate-600 mt-1 truncate px-1" title={image.originalName || image.filename}>
+                                          {image.originalName || image.filename}
+                                        </p>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              ) : (
+                                <p className="text-sm text-slate-500 italic">No image upload</p>
+                              )}
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -570,6 +648,44 @@ export default function PatientDetails({
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Image Viewer Modal */}
+      <Dialog open={!!selectedImage} onOpenChange={() => setSelectedImage(null)}>
+        <DialogContent className="max-w-5xl max-h-[90vh] p-0">
+          <DialogHeader className="px-6 pt-6 pb-4">
+            <DialogTitle>{selectedImage?.name}</DialogTitle>
+          </DialogHeader>
+          {selectedImage && (
+            <div className="relative bg-slate-100 rounded-b-lg">
+              <div className="flex items-center justify-center min-h-[400px] max-h-[75vh] p-4 relative">
+                <div className="relative w-full h-full max-w-full max-h-full">
+                  <Image 
+                    src={selectedImage.url} 
+                    alt={selectedImage.name}
+                    fill
+                    className="object-contain rounded-lg shadow-lg transition-opacity duration-300"
+                    sizes="(max-width: 768px) 100vw, 80vw"
+                    unoptimized
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect width="400" height="300" fill="%23e5e7eb"/%3E%3Ctext x="200" y="150" text-anchor="middle" dy=".3em" fill="%239ca3af" font-size="16"%3EFailed to load image%3C/text%3E%3C/svg%3E';
+                    }}
+                  />
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute top-4 right-4 bg-white/90 hover:bg-white shadow-md z-20"
+                onClick={() => setSelectedImage(null)}
+              >
+                <IconX className="h-5 w-5" />
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </SidebarProvider>
+    </AuthGuard>
   );
 } 

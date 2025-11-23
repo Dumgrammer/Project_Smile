@@ -39,6 +39,13 @@ function addMinutes(date: Date, minutes: number) {
   return d;
 }
 
+function formatTimeLabel(hour24: number, minute: number) {
+  const period = hour24 >= 12 ? 'PM' : 'AM';
+  const hour12 = ((hour24 + 11) % 12) + 1; // 0 -> 12, 13 -> 1, etc.
+  const minuteStr = String(minute).padStart(2, '0');
+  return `${hour12}:${minuteStr} ${period}`;
+}
+
 export function WeekCalendar({ date, events, onSlotClick, onEventClick, startHour = DEFAULT_START_HOUR, endHour = DEFAULT_END_HOUR, stepMinutes = DEFAULT_STEP_MINUTES, daysCount = 7 }: WeekCalendarProps) {
   const days = useMemo(() => {
     const base = daysCount === 1 ? new Date(date.getFullYear(), date.getMonth(), date.getDate()) : startOfWeek(date);
@@ -49,7 +56,7 @@ export function WeekCalendar({ date, events, onSlotClick, onEventClick, startHou
     const result: { hour: number; minute: number; label: string }[] = [];
     for (let h = startHour; h < endHour; h++) {
       for (let m = 0; m < 60; m += stepMinutes) {
-        const label = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+        const label = formatTimeLabel(h, m);
         result.push({ hour: h, minute: m, label });
       }
     }
@@ -89,21 +96,39 @@ export function WeekCalendar({ date, events, onSlotClick, onEventClick, startHou
         </div>
 
         {/* Days */}
-        {days.map((day, dayIdx) => (
+        {days.map((day, dayIdx) => {
+          const now = new Date();
+          const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          const dayDate = new Date(day.getFullYear(), day.getMonth(), day.getDate());
+          const isPastDay = dayDate < today;
+          
+          return (
           <div key={dayIdx} className="relative">
             {/* Slots */}
-            {slots.map((s, idx) => (
+            {slots.map((s, idx) => {
+              const slotStart = new Date(day);
+              slotStart.setHours(s.hour, s.minute, 0, 0);
+              const isPastTime = !isPastDay && slotStart < now;
+              const isPast = isPastDay || isPastTime;
+              
+              return (
               <div
                 key={idx}
-                className="h-10 border-l border-b dark:border-slate-800 hover:bg-violet-500/10 dark:hover:bg-violet-400/10 transition-colors cursor-crosshair"
+                className={`h-10 border-l border-b dark:border-slate-800 transition-colors ${
+                  isPast 
+                    ? 'bg-violet-100/50 dark:bg-violet-900/20 cursor-not-allowed' 
+                    : 'hover:bg-violet-500/10 dark:hover:bg-violet-400/10 cursor-crosshair'
+                }`}
                 onClick={() => {
-                  const start = new Date(day);
-                  start.setHours(s.hour, s.minute, 0, 0);
-                  const end = addMinutes(start, stepMinutes);
-                  onSlotClick?.(start, end);
+                  if (!isPast) {
+                    const start = new Date(day);
+                    start.setHours(s.hour, s.minute, 0, 0);
+                    const end = addMinutes(start, stepMinutes);
+                    onSlotClick?.(start, end);
+                  }
                 }}
               />
-            ))}
+            )})}
 
             {/* Events */}
             {eventsByDay[dayIdx]?.map((e) => {
@@ -127,13 +152,14 @@ export function WeekCalendar({ date, events, onSlotClick, onEventClick, startHou
                 >
                   <div className="font-semibold truncate">{e.title}</div>
                   <div className="opacity-90">
-                    {start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    {start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })} - {end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
                   </div>
                 </div>
               );
             })}
-          </div>
-        ))}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

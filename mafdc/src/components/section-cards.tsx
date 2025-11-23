@@ -5,7 +5,6 @@ import {
   Card,
   CardAction,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
@@ -16,6 +15,8 @@ export interface SectionCardsProps {
   activePatients?: number;
   totalRevenue?: number;
   growthRate?: number;
+  unreadInquiries?: number;
+  upcomingAppointments?: number;
   loading?: boolean;
   error?: string | null;
 }
@@ -24,6 +25,8 @@ export function SectionCards({
   id,
   totalVisitors,
   activePatients,
+  unreadInquiries,
+  upcomingAppointments,
   loading,
   error,
 }: SectionCardsProps) {
@@ -56,9 +59,7 @@ export function SectionCards({
             </Badge>
           </CardAction>
         </CardHeader>
-        <CardFooter className="flex-col items-start gap-1.5 text-sm">
-          <div className="text-slate-500">Unique patients with appointments this month</div>
-        </CardFooter>
+
       </Card>
       <Card className="@container/card border border-slate-200 shadow-sm">
         <CardHeader>
@@ -73,43 +74,37 @@ export function SectionCards({
             </Badge>
           </CardAction>
         </CardHeader>
-        <CardFooter className="flex-col items-start gap-1.5 text-sm">
-          <div className="text-slate-500">Currently active patient records</div>
-        </CardFooter>
+
       </Card>
       <Card className="@container/card border border-slate-200 shadow-sm">
         <CardHeader>
-          <CardDescription className="text-slate-500">Inquiries</CardDescription>
+          <CardDescription className="text-slate-500">Unread Inquiries</CardDescription>
           <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-            {activePatients ?? '--'}
+            {unreadInquiries ?? '--'}
           </CardTitle>
           <CardAction>
-            <Badge variant="outline" className="text-green-600 border-slate-200">
-              <IconTrendingUp className="text-green-500" />
-              Active
+            <Badge variant="outline" className="text-orange-600 border-slate-200">
+              <IconTrendingUp className="text-orange-500" />
+              Unread
             </Badge>
           </CardAction>
         </CardHeader>
-        <CardFooter className="flex-col items-start gap-1.5 text-sm">
-          <div className="text-slate-500">Total inquiries received</div>
-        </CardFooter>
+
       </Card>
       <Card className="@container/card border border-slate-200 shadow-sm">
         <CardHeader>
-          <CardDescription className="text-slate-500">Scheduled Appointments</CardDescription>
+          <CardDescription className="text-slate-500">Upcoming Appointments</CardDescription>
           <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-            {activePatients ?? '--'}
+            {upcomingAppointments ?? '--'}
           </CardTitle>
           <CardAction>
-            <Badge variant="outline" className="text-violet-600 border-slate-200">
-              <IconTrendingUp className="text-violet-500" />
-              This Month
+            <Badge variant="outline" className="text-blue-600 border-slate-200">
+              <IconTrendingUp className="text-blue-500" />
+              Scheduled
             </Badge>
           </CardAction>
         </CardHeader>
-        <CardFooter className="flex-col items-start gap-1.5 text-sm">
-          <div className="text-slate-500">Total scheduled appointments this month</div>
-        </CardFooter>
+
       </Card>
 
     </div>

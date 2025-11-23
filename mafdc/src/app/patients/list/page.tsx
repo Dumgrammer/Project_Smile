@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Filter, RefreshCw } from "lucide-react";
+import AuthGuard from '@/components/AuthGuard';
 
 export default function PatientsList() {
   const router = useRouter();
@@ -159,14 +160,15 @@ export default function PatientsList() {
   }
 
   return (
-    <SidebarProvider
-      style={
-        {
-          "--sidebar-width": "calc(var(--spacing) * 72)",
-          "--header-height": "calc(var(--spacing) * 12)",
-        } as React.CSSProperties
-      }
-    >
+    <AuthGuard>
+      <SidebarProvider
+        style={
+          {
+            "--sidebar-width": "calc(var(--spacing) * 72)",
+            "--header-height": "calc(var(--spacing) * 12)",
+          } as React.CSSProperties
+        }
+      >
       <AppSidebar variant="inset" />
       <SidebarInset>
         <SiteHeader />
@@ -283,5 +285,6 @@ export default function PatientsList() {
         </div>
       </SidebarInset>
     </SidebarProvider>
+    </AuthGuard>
   );
 } 

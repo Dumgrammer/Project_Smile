@@ -7,6 +7,8 @@ export interface DashboardStats {
   activePatients: number;
   totalRevenue: number;
   growthRate: number;
+  unreadInquiries: number;
+  upcomingAppointments: number;
 }
 
 export interface ActivityTrendPoint {

@@ -502,6 +502,94 @@ export const usePatients = () => {
     }
   };
 
+  const uploadCaseImages = async (patientId: string, caseId: string, images: File[]) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const formData = new FormData();
+      images.forEach((image) => {
+        formData.append('images', image);
+      });
+      
+      const response = await api.post(`/patients/${patientId}/cases/${caseId}/images`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      
+      // Decrypt the entire response
+      const decryptedResponse = decrypt(response.data.data);
+      
+      toast.success('Images uploaded successfully');
+      return {
+        success: true,
+        message: String(decryptedResponse.message || 'Images uploaded successfully'),
+        images: decryptedResponse.images || []
+      };
+    } catch (err: unknown) {
+      let errorMessage = 'Failed to upload images';
+      
+      if (isApiError(err) && err.response?.data?.data) {
+        try {
+          const decryptedError = decrypt(err.response.data.data);
+          errorMessage = String(decryptedError.error || errorMessage);
+        } catch (decryptError) {
+          console.error('Error decrypting error response:', decryptError);
+        }
+      } else if (isApiError(err) && err.response?.data?.error) {
+        errorMessage = String(err.response.data.error);
+      } else if (isApiError(err) && err.message) {
+        errorMessage = String(err.message);
+      }
+      
+      setError(errorMessage);
+      toast.error(errorMessage);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteCaseImage = async (patientId: string, caseId: string, imageId: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await api.delete(`/patients/${patientId}/cases/${caseId}/images/${imageId}`);
+      
+      // Decrypt the entire response
+      const decryptedResponse = decrypt(response.data.data);
+      
+      toast.success('Image deleted successfully');
+      return {
+        success: true,
+        message: String(decryptedResponse.message || 'Image deleted successfully')
+      };
+    } catch (err: unknown) {
+      let errorMessage = 'Failed to delete image';
+      
+      if (isApiError(err) && err.response?.data?.data) {
+        try {
+          const decryptedError = decrypt(err.response.data.data);
+          errorMessage = String(decryptedError.error || errorMessage);
+        } catch (decryptError) {
+          console.error('Error decrypting error response:', decryptError);
+        }
+      } else if (isApiError(err) && err.response?.data?.error) {
+        errorMessage = String(err.response.data.error);
+      } else if (isApiError(err) && err.message) {
+        errorMessage = String(err.message);
+      }
+      
+      setError(errorMessage);
+      toast.error(errorMessage);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return {
     loading,
     error,
@@ -516,5 +604,7 @@ export const usePatients = () => {
     restorePatient,
     archiveMultiplePatients,
     restoreMultiplePatients,
+    uploadCaseImages,
+    deleteCaseImage,
   };
 };

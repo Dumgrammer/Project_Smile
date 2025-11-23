@@ -7,6 +7,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import { useInquiries } from "@/hooks/inquiry/inquiryHooks";
 import { InquiryFormData } from "@/interface/Inquiry";
@@ -29,6 +36,13 @@ export default function Contact() {
     }));
   };
 
+  const handleSelectChange = (name: string, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -42,6 +56,13 @@ export default function Contact() {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
       toast.error('Please enter a valid email address');
+      return;
+    }
+
+    // Validate Philippine phone format +63XXXXXXXXXX (10 digits after +63)
+    const phoneRegex = /^\+63\d{10}$/;
+    if (!phoneRegex.test(formData.phone.trim())) {
+      toast.error('Please enter a valid Philippine number in +63XXXXXXXXXX format');
       return;
     }
 
@@ -206,7 +227,9 @@ export default function Contact() {
                           id="phone"
                           name="phone"
                           type="tel"
-                          placeholder="Enter your phone number"
+                          placeholder="e.g. +639171234567"
+                          pattern="\+63\d{10}"
+                          inputMode="tel"
                           className="w-full"
                           value={formData.phone}
                           onChange={handleInputChange}
@@ -218,17 +241,33 @@ export default function Contact() {
                         <Label htmlFor="subject" className="text-sm font-medium text-gray-900">
                           Subject
                         </Label>
-                        <Input
-                          id="subject"
-                          name="subject"
-                          type="text"
-                          placeholder="What is this regarding?"
-                          className="w-full"
+                        <Select 
+                          onValueChange={(value) => handleSelectChange('subject', value)} 
                           value={formData.subject}
-                          onChange={handleInputChange}
                           disabled={loading}
                           required
-                        />
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="What is this regarding?" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Orthodontic Braces">Orthodontic Braces</SelectItem>
+                            <SelectItem value="Cleaning/Oral Prophylaxis">Cleaning/Oral Prophylaxis</SelectItem>
+                            <SelectItem value="Extraction">Extraction</SelectItem>
+                            <SelectItem value="Teeth Whitening">Teeth Whitening</SelectItem>
+                            <SelectItem value="Restoration/Pasta">Restoration/Pasta</SelectItem>
+                            <SelectItem value="Dental Crown">Dental Crown</SelectItem>
+                            <SelectItem value="Fixed Bridge">Fixed Bridge</SelectItem>
+                            <SelectItem value="Veneers">Veneers</SelectItem>
+                            <SelectItem value="Denture">Denture</SelectItem>
+                            <SelectItem value="General Inquiry">General Inquiry</SelectItem>
+                            <SelectItem value="Appointment Scheduling">Appointment Scheduling</SelectItem>
+                            <SelectItem value="Emergency">Emergency</SelectItem>
+                            <SelectItem value="Insurance Questions">Insurance Questions</SelectItem>
+                            <SelectItem value="Payment Options">Payment Options</SelectItem>
+                            <SelectItem value="Other">Other</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
                     </div>
                     <div className="space-y-2">

@@ -112,6 +112,8 @@ export interface Appointment {
     status?: number;
     data?: unknown;
     response?: {
+      status?: number;
+      statusText?: string;
       data?: {
         message?: string;
       };

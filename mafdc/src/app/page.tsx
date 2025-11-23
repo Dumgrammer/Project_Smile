@@ -1,3 +1,5 @@
+'use client';
+
 import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -10,6 +12,7 @@ import {
 } from "@/components/ui/card";
 
 export default function Home() {
+
   return (
     <div className="flex flex-col min-h-screen bg-white">
       {/* Hero Section */}

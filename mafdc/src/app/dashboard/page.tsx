@@ -13,6 +13,7 @@ import {
   SidebarProvider,
 } from "@/components/ui/sidebar"
 import { useDashboardStats } from '@/hooks/dashboard/dashboardHooks';
+import AuthGuard from '@/components/AuthGuard';
 
 interface AdminData {
   firstName: string;
@@ -55,7 +56,8 @@ export default function Dashboard() {
   }
 
   return (
-    <SidebarProvider
+    <AuthGuard>
+      <SidebarProvider
       style={
         {
           "--sidebar-width": "calc(var(--spacing) * 72)",
@@ -83,6 +85,8 @@ export default function Dashboard() {
                 activePatients={stats?.activePatients}
                 totalRevenue={stats?.totalRevenue}
                 growthRate={stats?.growthRate}
+                unreadInquiries={stats?.unreadInquiries}
+                upcomingAppointments={stats?.upcomingAppointments}
                 loading={loading}
                 error={error}
               />
@@ -94,5 +98,6 @@ export default function Dashboard() {
         </div>
       </SidebarInset>
     </SidebarProvider>
+    </AuthGuard>
   );
 }
