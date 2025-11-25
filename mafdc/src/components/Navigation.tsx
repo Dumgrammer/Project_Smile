@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
@@ -9,7 +9,12 @@ import { Menu, X } from 'lucide-react';
 
 export default function Navigation() {
   const [isOpen, setIsOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   return (
     <nav className="bg-white shadow-md dark:bg-gray-900">
@@ -34,7 +39,7 @@ export default function Navigation() {
                 <Link 
                   href="/" 
                   className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                    pathname === '/' 
+                    mounted && pathname === '/' 
                       ? 'text-violet-600 dark:text-violet-400 border-b-2 border-violet-600 dark:border-violet-400' 
                       : 'text-gray-700 hover:text-violet-600 dark:text-gray-300 dark:hover:text-violet-400'
                   }`}
@@ -44,7 +49,7 @@ export default function Navigation() {
                 <Link 
                   href="/services" 
                   className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                    pathname === '/services' 
+                    mounted && pathname === '/services' 
                       ? 'text-violet-600 dark:text-violet-400 border-b-2 border-violet-600 dark:border-violet-400' 
                       : 'text-gray-700 hover:text-violet-600 dark:text-gray-300 dark:hover:text-violet-400'
                   }`}
@@ -54,7 +59,7 @@ export default function Navigation() {
                 <Link 
                   href="/about" 
                   className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                    pathname === '/about' 
+                    mounted && pathname === '/about' 
                       ? 'text-violet-600 dark:text-violet-400 border-b-2 border-violet-600 dark:border-violet-400' 
                       : 'text-gray-700 hover:text-violet-600 dark:text-gray-300 dark:hover:text-violet-400'
                   }`}
@@ -64,7 +69,7 @@ export default function Navigation() {
                 <Link 
                   href="/contact" 
                   className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                    pathname === '/contact' 
+                    mounted && pathname === '/contact' 
                       ? 'text-violet-600 dark:text-violet-400 border-b-2 border-violet-600 dark:border-violet-400' 
                       : 'text-gray-700 hover:text-violet-600 dark:text-gray-300 dark:hover:text-violet-400'
                   }`}
@@ -74,7 +79,7 @@ export default function Navigation() {
                 <Link 
                   href="/onlineappointment" 
                   className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                    pathname === '/onlineappointment' 
+                    mounted && pathname === '/onlineappointment' 
                       ? 'text-violet-600 dark:text-violet-400 border-b-2 border-violet-600 dark:border-violet-400' 
                       : 'text-gray-700 hover:text-violet-600 dark:text-gray-300 dark:hover:text-violet-400'
                   }`}
@@ -100,7 +105,7 @@ export default function Navigation() {
               href="/" 
               onClick={() => setIsOpen(false)} 
               className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
-                pathname === '/' 
+                mounted && pathname === '/' 
                   ? 'text-violet-600 dark:text-violet-400 border-b-2 border-violet-600 dark:border-violet-400 bg-gray-50 dark:bg-gray-800' 
                   : 'text-gray-700 hover:text-violet-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:text-violet-400 dark:hover:bg-gray-800'
               }`}
@@ -111,7 +116,7 @@ export default function Navigation() {
               href="/services" 
               onClick={() => setIsOpen(false)} 
               className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
-                pathname === '/services' 
+                mounted && pathname === '/services' 
                   ? 'text-violet-600 dark:text-violet-400 border-b-2 border-violet-600 dark:border-violet-400 bg-gray-50 dark:bg-gray-800' 
                   : 'text-gray-700 hover:text-violet-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:text-violet-400 dark:hover:bg-gray-800'
               }`}
@@ -122,7 +127,7 @@ export default function Navigation() {
               href="/about" 
               onClick={() => setIsOpen(false)} 
               className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
-                pathname === '/about' 
+                mounted && pathname === '/about' 
                   ? 'text-violet-600 dark:text-violet-400 border-b-2 border-violet-600 dark:border-violet-400 bg-gray-50 dark:bg-gray-800' 
                   : 'text-gray-700 hover:text-violet-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:text-violet-400 dark:hover:bg-gray-800'
               }`}
@@ -133,7 +138,7 @@ export default function Navigation() {
               href="/contact" 
               onClick={() => setIsOpen(false)} 
               className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
-                pathname === '/contact' 
+                mounted && pathname === '/contact' 
                   ? 'text-violet-600 dark:text-violet-400 border-b-2 border-violet-600 dark:border-violet-400 bg-gray-50 dark:bg-gray-800' 
                   : 'text-gray-700 hover:text-violet-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:text-violet-400 dark:hover:bg-gray-800'
               }`}
@@ -144,7 +149,7 @@ export default function Navigation() {
               href="/onlineappointment" 
               onClick={() => setIsOpen(false)} 
               className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
-                pathname === '/onlineappointment' 
+                mounted && pathname === '/onlineappointment' 
                   ? 'text-violet-600 dark:text-violet-400 border-b-2 border-violet-600 dark:border-violet-400 bg-gray-50 dark:bg-gray-800' 
                   : 'text-gray-700 hover:text-violet-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:text-violet-400 dark:hover:bg-gray-800'
               }`}

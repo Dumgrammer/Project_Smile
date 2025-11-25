@@ -10,8 +10,22 @@ import {
   CardHeader, 
   CardTitle 
 } from "@/components/ui/card";
+import { useMetrics } from "@/hooks/metrics/metricHooks";
 
 export default function Home() {
+  const { metrics, loading, error } = useMetrics();
+
+  const formatNumber = (value: number) => {
+    return new Intl.NumberFormat('en-US', {
+      notation: 'compact',
+      maximumFractionDigits: 1,
+    }).format(value);
+  };
+
+  const stats = [
+    { label: 'Unique Visitors (30d)', value: metrics?.uniqueVisitors ?? 0 },
+    { label: 'Total Requests (30d)', value: metrics?.totalRequests ?? 0 },
+  ];
 
   return (
     <div className="flex flex-col min-h-screen bg-white">
@@ -111,7 +125,7 @@ export default function Home() {
       {/* Call to Action */}
       <section className="w-full py-20 bg-violet-900 text-white">
         <div className="container mx-auto px-4 md:px-6">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-8">
+          <div className="grid gap-10 md:grid-cols-2 items-center">
             <div className="space-y-4 text-center md:text-left">
               <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl">
                 Ready for a healthier smile?
@@ -119,12 +133,34 @@ export default function Home() {
               <p className="max-w-[500px] text-violet-200">
                 Schedule your dental appointment today and take the first step toward optimal oral health.
               </p>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center md:justify-start">
+                <Link href="/onlineappointment">
+                  <Button className="bg-white hover:bg-gray-100 text-violet-900 px-8 py-6 h-auto text-base font-medium">
+                    Book Online
+                  </Button>
+                </Link>
+                <Link href="/contact">
+                  <Button className="bg-violet-700 hover:bg-violet-800 text-white px-8 py-6 h-auto text-base font-medium">
+                    Contact Us Now
+                  </Button>
+                </Link>
+              </div>
             </div>
-            <Link href="/contact">
-              <Button className="bg-white hover:bg-gray-100 text-violet-900 px-8 py-6 h-auto text-base font-medium">
-                Contact Us Now
-              </Button>
-            </Link>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {stats.map((stat) => (
+                <Card key={stat.label} className="bg-white/10 border-white/20 text-white backdrop-blur">
+                  <CardHeader className="pb-2">
+                    <CardDescription className="text-violet-200 text-sm">{stat.label}</CardDescription>
+                    <CardTitle className="text-3xl font-bold">
+                      {loading ? 'Loading...' : error ? '--' : formatNumber(stat.value)}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="text-xs text-violet-200">
+                    {metrics?.range ? `From ${metrics.range.start} to ${metrics.range.end}` : 'Past 30 days'}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           </div>
         </div>
       </section>

@@ -446,7 +446,7 @@ export function AppointmentDialogs({
                 </div>
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="treatmentNotes">Treatment Notes</Label>
+                <Label htmlFor="treatmentNotes">Treatment History</Label>
                 <Textarea
                   id="treatmentNotes"
                   placeholder="Enter treatment details..."

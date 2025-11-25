@@ -98,6 +98,58 @@ interface PatientWithDates extends Patient {
 // ReportData can be any of these types or a generic record
 type ReportData = PatientWithDates | Appointment | Inquiry | Log | Record<string, unknown>;
 
+const normalizeLogo = (dataUrl: string, size = 256): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        reject(new Error('Unable to create canvas context'));
+        return;
+      }
+
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, size, size);
+
+      const scale = Math.min(size / img.width, size / img.height);
+      const drawWidth = img.width * scale;
+      const drawHeight = img.height * scale;
+      const offsetX = (size - drawWidth) / 2;
+      const offsetY = (size - drawHeight) / 2;
+
+      ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+
+      resolve(canvas.toDataURL('image/png'));
+    };
+    img.onerror = reject;
+    img.src = dataUrl;
+  });
+};
+
+const loadLogo = async (path: string): Promise<string> => {
+  const response = await fetch(path);
+  if (!response.ok) {
+    throw new Error(`Failed to load logo: ${path}`);
+  }
+  const blob = await response.blob();
+  return await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      try {
+        const normalized = await normalizeLogo(reader.result as string);
+        resolve(normalized);
+      } catch (error) {
+        reject(error);
+      }
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+};
+
 export default function ReportsPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
@@ -107,6 +159,8 @@ export default function ReportsPage() {
   const [endDate, setEndDate] = useState<string>('');
   const [exporting, setExporting] = useState(false);
   const [data, setData] = useState<ReportData[]>([]);
+  const [leftLogo, setLeftLogo] = useState<string | null>(null);
+  const [rightLogo, setRightLogo] = useState<string | null>(null);
 
   const { getPatients } = usePatients();
   const { getAppointments } = useAppointments();
@@ -131,6 +185,33 @@ export default function ReportsPage() {
       setIsLoading(false);
     }
   }, [router]);
+
+  // Preload clinic logos for PDF export header
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchLogos = async () => {
+      try {
+        const [left, right] = await Promise.all([
+          loadLogo('/Nogo.png'),
+          loadLogo('/wogo.png'),
+        ]);
+
+        if (isMounted) {
+          setLeftLogo(left);
+          setRightLogo(right);
+        }
+      } catch (error) {
+        console.warn('Unable to load report logos', error);
+      }
+    };
+
+    fetchLogos();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Set default dates based on date range type
   useEffect(() => {
@@ -569,6 +650,21 @@ export default function ReportsPage() {
       // Safe margins for A4 printing (20mm on each side)
       const margin = 20; // 20mm = ~57pt, but we'll work in mm
       const contentWidth = pageWidth - (margin * 2); // ~257mm usable width
+
+      // Place clinic logos on both sides of the header if available
+      const logoWidth = 45;
+      const logoHeight = 45;
+      const logoY = 1;
+      const leftLogoX = Math.max(0, margin - 8);
+      const rightLogoX = Math.min(pageWidth - logoWidth, pageWidth - margin - logoWidth + 8);
+
+      // Swap logos: Smile icon on the left, clinic logo on the right
+      if (rightLogo) {
+        doc.addImage(rightLogo, 'PNG', leftLogoX, logoY, logoWidth, logoHeight);
+      }
+      if (leftLogo) {
+        doc.addImage(leftLogo, 'PNG', rightLogoX, logoY, logoWidth, logoHeight);
+      }
       
       // Add clinic header at the top (centered)
       doc.setFontSize(16);

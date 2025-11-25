@@ -142,6 +142,11 @@ export default function AppointmentsPage() {
   const [cancelReason, setCancelReason] = useState('');
   const [adminData, setAdminData] = useState<AdminData | null>(null);
   const [remarkedAppointments, setRemarkedAppointments] = useState<Set<string>>(new Set());
+  const [isBootstrapping, setIsBootstrapping] = useState(true);
+  const [superadminTabInitialized, setSuperadminTabInitialized] = useState(false);
+  const [viewManuallySet, setViewManuallySet] = useState(false);
+
+  const isSuperadmin = adminData?.role?.toLowerCase() === 'superadmin';
 
   const fetchAppointments = useCallback(async () => {
     try {
@@ -327,18 +332,20 @@ export default function AppointmentsPage() {
   }, [fetchAppointments, fetchArchivedAppointments, fetchFinishedAppointments]);
 
   useEffect(() => {
-    let mounted = true;
+    let isMounted = true;
 
     const initializeData = async () => {
-      if (mounted) {
-        await loadData();
+      setIsBootstrapping(true);
+      await loadData();
+      if (isMounted) {
+        setIsBootstrapping(false);
       }
     };
 
     initializeData();
 
     return () => {
-      mounted = false;
+      isMounted = false;
       setEvents([]);
       setArchivedEvents([]);
     };
@@ -361,29 +368,29 @@ export default function AppointmentsPage() {
   useEffect(() => {
     setMounted(true);
     
-    // Set initial view based on screen size after mounting
-    const setInitialView = () => {
+    // Set initial view based on screen size after mounting (only once)
+    if (!viewManuallySet) {
       if (window.innerWidth < 1024) {
         setView('day');
       } else {
         setView('week');
       }
-    };
+    }
     
     const handleResize = () => {
-      if (window.innerWidth < 1024 && view !== 'day') {
-        setView('day');
-      } else if (window.innerWidth >= 1024 && view === 'day') {
-        setView('week');
+      // Only auto-adjust if user hasn't manually set the view
+      if (!viewManuallySet) {
+        if (window.innerWidth < 1024 && view !== 'day') {
+          setView('day');
+        } else if (window.innerWidth >= 1024 && view === 'day') {
+          setView('week');
+        }
       }
     };
 
-    // Set initial view
-    setInitialView();
-    
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, [view]);
+  }, [view, viewManuallySet]);
 
   // Add new appointment
   const handleCreateAppointment = async () => {
@@ -674,15 +681,30 @@ export default function AppointmentsPage() {
     setShowAppointmentModal(true);
   };
   
-  // Get today's appointments (filter out appointments outside business hours, finished appointments, and remarked appointments)
+  // Get today's appointments (filter out appointments outside business hours and remarked appointments)
   const todaysAppointments = useMemo(() => {
     return events.filter(event => 
       event.start instanceof Date && 
       isToday(event.start) &&
-      event.status !== 'Finished' && // Exclude finished appointments from Today's Schedule
       isWithinBusinessHours(event.start) && // Only show appointments within business hours
       !remarkedAppointments.has(event.id) // Filter out appointments that have been remarked
     );
+  }, [events, remarkedAppointments]);
+
+  // Upcoming appointments for superadmin (next appointments excluding today)
+  const upcomingAppointments = useMemo(() => {
+    const now = new Date();
+    now.setSeconds(0, 0);
+    return events
+      .filter(event => 
+        event.start instanceof Date &&
+        event.start > now &&
+        isWithinBusinessHours(event.start) &&
+        event.status !== 'Cancelled' &&
+        !(event.status === 'Finished' && remarkedAppointments.has(event.id))
+      )
+      .sort((a, b) => a.start.getTime() - b.start.getTime())
+      .slice(0, 10);
   }, [events, remarkedAppointments]);
 
   // Get all appointments for the current month (filter out appointments outside business hours)
@@ -718,6 +740,13 @@ export default function AppointmentsPage() {
   // State to track active tab
   const [activeTab, setActiveTab] = useState<'active' | 'archived' | 'finished'>('active');
 
+  useEffect(() => {
+    if (isSuperadmin && !superadminTabInitialized) {
+      setActiveTab('finished');
+      setSuperadminTabInitialized(true);
+    }
+  }, [isSuperadmin, superadminTabInitialized]);
+
   const visibleEvents = useMemo(() => {
     // Only show events in active tab (exclude Finished and Cancelled)
     // Finished and Archived tabs show list views, not calendar
@@ -726,7 +755,9 @@ export default function AppointmentsPage() {
     }
 
     // Active tab: exclude Finished and Cancelled
-    const statusFilteredEvents = events.filter(e => e.status !== 'Finished' && e.status !== 'Cancelled');
+    const statusFilteredEvents = events.filter(e => 
+      e.status !== 'Cancelled' && !(e.status === 'Finished' && remarkedAppointments.has(e.id))
+    );
 
     let filteredEvents;
     if (view === 'day') {
@@ -745,7 +776,7 @@ export default function AppointmentsPage() {
     
     // Filter out appointments outside business hours
     return filteredEvents.filter(e => isWithinBusinessHours(e.start));
-  }, [events, activeTab, date, view, startOfWeekMonday, endOfWeekMonday, startOfMonth, endOfMonth]);
+  }, [events, activeTab, date, view, startOfWeekMonday, endOfWeekMonday, startOfMonth, endOfMonth, remarkedAppointments]);
 
   const navigate = (action: 'PREV' | 'NEXT' | 'TODAY') => {
     let newDate = new Date(date);
@@ -779,6 +810,7 @@ export default function AppointmentsPage() {
 
   const changeView = (newView: CalendarView) => {
     setView(newView);
+    setViewManuallySet(true);
   };
 
   return (
@@ -787,15 +819,21 @@ export default function AppointmentsPage() {
       <AppSidebar variant="inset" />
       <SidebarInset>
         <SiteHeader />
-        <div className="flex flex-1 flex-col gap-2">
-          <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+        <div className="flex flex-1 flex-col gap-2 relative">
+          {isBootstrapping && (
+            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white/90 dark:bg-slate-950/80 backdrop-blur-sm">
+              <div className="h-12 w-12 rounded-full border-4 border-violet-200 border-t-violet-600 animate-spin" />
+              <p className="mt-4 text-sm text-slate-500">Loading appointments...</p>
+            </div>
+          )}
+          <div className={`flex flex-col gap-4 py-4 md:gap-6 md:py-6 transition-opacity duration-300 ${isBootstrapping ? 'opacity-0 pointer-events-none select-none' : 'opacity-100'}`}>
             <div className="px-4 lg:px-6">
               <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center mb-4">
                 <div>
                   <h1 className="text-2xl sm:text-3xl font-bold">Appointments</h1>
                   <p className="text-slate-600 text-sm sm:text-base">Manage patient appointments and schedule</p>
                 </div>
-                {adminData?.role?.toLowerCase() !== 'superadmin' && (
+                {!isSuperadmin && (
                   <Button 
                     id="tour-new-apt"
                     className="bg-violet-600 hover:bg-violet-700 w-full sm:w-auto mt-2 sm:mt-0"
@@ -815,9 +853,14 @@ export default function AppointmentsPage() {
                 )}
               </div>
             </div>
-            <div className={`px-2 sm:px-4 lg:px-6 flex flex-col ${adminData?.role?.toLowerCase() === 'superadmin' ? '' : 'lg:grid lg:grid-cols-5 xl:grid-cols-4'} gap-4`}>
-              {/* Upcoming appointments card - responsive sidebar */}
-              <Card id="tour-today-schedule" className={`mb-4 shadow-sm rounded-lg lg:mb-0 ${adminData?.role?.toLowerCase() === 'superadmin' ? 'w-full' : 'lg:col-span-1'} dark:bg-[#0b1020] dark:border-slate-700`}>
+            <div className={`px-2 sm:px-4 lg:px-6 flex flex-col ${isSuperadmin ? 'lg:grid lg:grid-cols-2' : 'lg:grid lg:grid-cols-5 xl:grid-cols-4'} gap-4`}>
+              {/* Today's appointments card */}
+              <Card
+                id="tour-today-schedule"
+                className={`mb-4 shadow-sm rounded-lg lg:mb-0 ${
+                  isSuperadmin ? 'border-2 border-violet-500' : 'lg:col-span-1'
+                } dark:bg-[#0b1020] dark:border-slate-700`}
+              >
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base lg:text-lg">Today&apos;s Schedule</CardTitle>
                   <CardDescription className="text-xs lg:text-sm">Upcoming appointments</CardDescription>
@@ -959,16 +1002,55 @@ export default function AppointmentsPage() {
                   )}
                 </CardContent>
               </Card>
-              {/* Main calendar using react-big-calendar - Hidden for superadmin */}
-              {adminData?.role?.toLowerCase() !== 'superadmin' && (
-              <div className="shadow-sm rounded-lg lg:col-span-4 xl:col-span-3 h-[400px] sm:h-[500px] lg:h-[calc(100vh-200px)] bg-white dark:bg-[#0b1020]">
-                <Tabs defaultValue="active" className="w-full h-full flex flex-col" onValueChange={(value) => setActiveTab(value as 'active' | 'archived' | 'finished')}>
+
+              {/* Upcoming appointments for superadmin */}
+              {isSuperadmin && (
+                <Card className="shadow-sm rounded-lg dark:bg-[#0b1020] dark:border-slate-700">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base lg:text-lg">Upcoming Appointments</CardTitle>
+                    <CardDescription className="text-xs lg:text-sm">Next scheduled visits</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3 max-h-[300px] overflow-y-auto">
+                    {upcomingAppointments.length > 0 ? (
+                      upcomingAppointments.map(event => (
+                        <div key={`upcoming-${event.id}`} className="p-3 border rounded-lg bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 transition-colors">
+                          <div className="font-medium text-sm lg:text-base text-violet-700 mb-1">{event.title}</div>
+                          <div className="text-xs lg:text-sm text-slate-600 mb-2">
+                            {format(event.start, 'MMM d, yyyy • h:mm a')} - {format(event.end, 'h:mm a')}
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <Badge variant="outline" className="text-xs">
+                              {event.status}
+                            </Badge>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-8 text-slate-500 text-sm">
+                        <div className="text-2xl mb-2">⏳</div>
+                        <div>No upcoming appointments scheduled</div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+              <div className={`shadow-sm rounded-lg bg-white dark:bg-[#0b1020] ${isSuperadmin ? 'lg:col-span-2 h-[400px] sm:h-[500px]' : 'lg:col-span-4 xl:col-span-3 h-[400px] sm:h-[500px] lg:h-[calc(100vh-200px)]'}`}>
+                <Tabs
+                  value={activeTab}
+                  className="w-full h-full flex flex-col"
+                  onValueChange={(value) => setActiveTab(value as 'active' | 'archived' | 'finished')}
+                >
                     <TabsList className="mb-4 flex flex-row w-full max-w-2xl mx-auto justify-center bg-slate-100 dark:bg-slate-800 rounded-full shadow-sm p-1">
-                      <TabsTrigger value="active" className="flex-1 px-3 py-2 text-sm font-semibold rounded-full transition data-[state=active]:bg-violet-600 dark:data-[state=active]:bg-violet-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=inactive]:bg-transparent data-[state=inactive]:text-slate-600 dark:data-[state=inactive]:text-slate-300">Active</TabsTrigger>
+                      {!isSuperadmin && (
+                        <TabsTrigger value="active" className="flex-1 px-3 py-2 text-sm font-semibold rounded-full transition data-[state=active]:bg-violet-600 dark:data-[state=active]:bg-violet-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=inactive]:bg-transparent data-[state=inactive]:text-slate-600 dark:data-[state=inactive]:text-slate-300">
+                          Active
+                        </TabsTrigger>
+                      )}
                       <TabsTrigger value="finished" className="flex-1 px-3 py-2 text-sm font-semibold rounded-full transition data-[state=active]:bg-violet-600 dark:data-[state=active]:bg-violet-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=inactive]:bg-transparent data-[state=inactive]:text-slate-600 dark:data-[state=inactive]:text-slate-300">Finished</TabsTrigger>
                       <TabsTrigger value="archived" className="flex-1 px-3 py-2 text-sm font-semibold rounded-full transition data-[state=active]:bg-violet-600 dark:data-[state=active]:bg-violet-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=inactive]:bg-transparent data-[state=inactive]:text-slate-600 dark:data-[state=inactive]:text-slate-300">Archived</TabsTrigger>
                   </TabsList>
 
+                  {!isSuperadmin && (
                   <TabsContent value="active" className="flex-1 flex flex-col">
                       <div className="flex-1 bg-white dark:bg-[#0b1020] rounded-lg shadow-sm border dark:border-slate-700 p-3 sm:p-4">
                         {/* Compact responsive navigation */}
@@ -1091,6 +1173,7 @@ export default function AppointmentsPage() {
                         </div>
                     </div>
                   </TabsContent>
+                  )}
 
                   <TabsContent value="finished" className="flex-1 flex flex-col">
                       <div className="flex-1 bg-white dark:bg-[#0b1020] rounded-lg shadow-sm border dark:border-slate-700 p-3 sm:p-4 flex flex-col">
@@ -1223,7 +1306,6 @@ export default function AppointmentsPage() {
                   </TabsContent>
                 </Tabs>
               </div>
-              )}
             </div>
           </div>
         </div>

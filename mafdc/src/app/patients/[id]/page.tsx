@@ -437,9 +437,6 @@ export default function PatientDetails({
                                               {note.appointment.startTime} - {note.appointment.endTime}
                                             </p>
                                           </div>
-                                          <Badge variant={note.payment.status === 'Paid' ? 'default' : 'secondary'}>
-                                            {note.payment.status}
-                                          </Badge>
                                         </div>
                                         <div className="space-y-2">
                                           <div>
@@ -453,7 +450,6 @@ export default function PatientDetails({
                                             </div>
                                           )}
                                           <div className="flex justify-between items-center text-sm text-slate-500">
-                                            <span>Amount: ₱{note.payment.amount.toFixed(2)}</span>
                                             <span>Added by: {note.createdBy.firstName} {note.createdBy.lastName}</span>
                                           </div>
                                         </div>

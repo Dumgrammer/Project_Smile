@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -76,15 +76,11 @@ export default function InquiriesPage() {
     });
   };
 
-  const fetchInquiries = useCallback(async (page?: number, limit?: number, tab?: string) => {
+  const fetchInquiries = useCallback(async (page: number, limit: number, tab: string) => {
     setRefreshing(true);
     try {
-      const currentPage = page ?? pagination.page;
-      const currentLimit = limit ?? pagination.limit;
-      const currentTabValue = tab ?? currentTab;
-      
-      const archived = currentTabValue === 'archived';
-      const result = await getInquiries(currentPage, currentLimit, undefined, archived);
+      const archived = tab === 'archived';
+      const result = await getInquiries(page, limit, undefined, archived);
       
       if (result.success && result.data) {
         // Map the backend response to our frontend format
@@ -95,11 +91,18 @@ export default function InquiriesPage() {
         setInquiries(mappedInquiries);
         
         // Update pagination info
-        setPagination({
-          page: result.data.currentPage || currentPage,
-          limit: currentLimit,
-          totalPages: result.data.totalPages || 1,
-          total: result.data.total || 0
+        setPagination(prev => {
+          const nextState = {
+            page: result.data.currentPage || page,
+            limit,
+            totalPages: result.data.totalPages || 1,
+            total: result.data.total || 0
+          };
+          const unchanged = prev.page === nextState.page &&
+            prev.limit === nextState.limit &&
+            prev.totalPages === nextState.totalPages &&
+            prev.total === nextState.total;
+          return unchanged ? prev : nextState;
         });
       } else {
         toast.error(result.error || 'Failed to fetch inquiries');
@@ -110,21 +113,33 @@ export default function InquiriesPage() {
     } finally {
       setRefreshing(false);
     }
-  }, [getInquiries, currentTab, pagination.page, pagination.limit]);
+  }, [getInquiries]);
 
-  // Fetch inquiries on component mount only
-  useEffect(() => {
-    if (!authLoading) {
-      fetchInquiries();
-    }
-  }, [authLoading, fetchInquiries]);
+  const lastFetchKeyRef = useRef<string>('');
+
+  const requestInquiries = useCallback(
+    async (page: number, limit: number, tab: string, options: { force?: boolean } = {}) => {
+      const key = `${tab}-${page}-${limit}`;
+      if (!options.force && lastFetchKeyRef.current === key) {
+        return;
+      }
+      lastFetchKeyRef.current = key;
+      try {
+        await fetchInquiries(page, limit, tab);
+      } catch (error) {
+        lastFetchKeyRef.current = '';
+        throw error;
+      }
+    },
+    [fetchInquiries]
+  );
 
   // Fetch inquiries when pagination or tab changes
   useEffect(() => {
     if (!authLoading) {
-      fetchInquiries();
+      requestInquiries(pagination.page, pagination.limit, currentTab);
     }
-  }, [authLoading, fetchInquiries, pagination.page, pagination.limit, currentTab]);
+  }, [authLoading, requestInquiries, pagination.page, pagination.limit, currentTab]);
 
   const handleReadInquiry = async (inquiry: Inquiry) => {
     setSelectedInquiry(inquiry);
@@ -342,7 +357,7 @@ export default function InquiriesPage() {
                   </Button>
                   <Button 
                     variant="outline"
-                    onClick={() => fetchInquiries()}
+                    onClick={() => requestInquiries(pagination.page, pagination.limit, currentTab, { force: true })}
                     disabled={refreshing}
                     className="flex items-center gap-2"
                   >
