@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,6 +44,7 @@ export default function LogsPage() {
   const [showLogDialog, setShowLogDialog] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const statsLoadedRef = useRef(false);
   
   // Filter states
   const [filters, setFilters] = useState({
@@ -185,20 +186,22 @@ export default function LogsPage() {
     }
   }, [getLogStats]);
 
-  // Fetch logs on component mount only
+  // Fetch logs when auth is ready or filters change
   useEffect(() => {
     if (!authLoading) {
       fetchLogs();
-      fetchStats();
     }
-  }, [authLoading, fetchLogs, fetchStats]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, filters]);
 
-  // Fetch logs when filters change
+  // Fetch stats only once on initial load
   useEffect(() => {
-    if (!authLoading) {
-      fetchLogs();
+    if (!authLoading && !statsLoadedRef.current) {
+      fetchStats();
+      statsLoadedRef.current = true;
     }
-  }, [authLoading, fetchLogs, filters]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading]);
 
   const handleViewLog = (log: Log) => {
     setSelectedLog(log);
