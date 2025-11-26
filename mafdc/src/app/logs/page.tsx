@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -45,6 +45,10 @@ export default function LogsPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const statsLoadedRef = useRef(false);
+  const mostCommonAction = useMemo(() => {
+    if (!stats?.byAction?.length) return null;
+    return stats.byAction.reduce((top, current) => (current.count > top.count ? current : top));
+  }, [stats]);
   
   // Filter states
   const [filters, setFilters] = useState({
@@ -299,11 +303,13 @@ export default function LogsPage() {
                     </CardHeader>
                     <CardContent>
                       <div className="text-2xl font-bold dark:text-white">
-                        {stats.byAction.length > 0 
-                          ? formatAction(stats.byAction[0]._id)
-                          : 'N/A'
-                        }
+                        {mostCommonAction
+                          ? `${formatAction(mostCommonAction._id)}`
+                          : 'N/A'}
                       </div>
+                      {mostCommonAction && (
+                        <p className="text-sm text-slate-500 dark:text-slate-400">Count: {mostCommonAction.count}</p>
+                      )}
                     </CardContent>
                   </Card>
                 </div>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { format, isToday } from 'date-fns';
+import { format, isToday, differenceInMinutes } from 'date-fns';
 import './appointments.css';
 import { AppSidebar } from "@/components/app-sidebar";
 import { SiteHeader } from "@/components/site-header";
@@ -519,8 +519,19 @@ export default function AppointmentsPage() {
     }
   };
 
-  const handleCancelAppointment = async (appointmentId: string) => {
-    setAppointmentToCancel(appointmentId);
+  const canCancelAppointmentNow = useCallback((start: Date) => {
+    const now = new Date();
+    if (start <= now) return false;
+    const minutesUntilStart = differenceInMinutes(start, now);
+    return minutesUntilStart >= 30;
+  }, []);
+
+  const handleCancelAppointment = async (appointment: AppointmentEvent) => {
+    if (!canCancelAppointmentNow(appointment.start)) {
+      toast.error("Appointments starting within 30 minutes can’t be cancelled.");
+      return;
+    }
+    setAppointmentToCancel(appointment.id);
     setShowCancelDialog(true);
     setShowEditModal(false); // Close edit modal if open
   };
@@ -756,7 +767,7 @@ export default function AppointmentsPage() {
 
     // Active tab: exclude Finished and Cancelled
     const statusFilteredEvents = events.filter(e => 
-      e.status !== 'Cancelled' && !(e.status === 'Finished' && remarkedAppointments.has(e.id))
+      e.status !== 'Cancelled' && e.status !== 'Finished'
     );
 
     let filteredEvents;
@@ -909,7 +920,7 @@ export default function AppointmentsPage() {
                                 variant="destructive" 
                                 size="sm"
                                 className="text-xs px-2 py-1 h-7"
-                                onClick={() => handleCancelAppointment(event.id)}
+                                onClick={() => handleCancelAppointment(event as AppointmentEvent)}
                               >
                                 Cancel
                               </Button>
@@ -975,18 +986,36 @@ export default function AppointmentsPage() {
                                   >
                                     Reschedule
                                   </Button>
-                                  <Button 
-                                    key={`cancel-${event.id}`}
-                                    variant="destructive" 
-                                    size="sm"
-                                    className="text-xs px-2 py-1 h-7"
-                                    onClick={() => {
-                                      handleCancelAppointment(event.id);
-                                    }}
-                                    disabled={event.status === 'Finished'}
-                                  >
-                                    Cancel
-                                  </Button>
+                                  {(() => {
+                                    const canCancel = canCancelAppointmentNow(event.start);
+                                    return (
+                                      <Button 
+                                        key={`cancel-${event.id}`}
+                                        variant="destructive" 
+                                        size="sm"
+                                        className="text-xs px-2 py-1 h-7"
+                                        onClick={() => handleCancelAppointment(event as AppointmentEvent)}
+                                        disabled={!canCancel || event.status === 'Finished'}
+                                      >
+                                        Cancel
+                                      </Button>
+                                    );
+                                  })()}
+                                  {(() => {
+                                    const canCancel = canCancelAppointmentNow(event.start);
+                                    return (
+                                      <Button 
+                                        key={`cancel-${event.id}`}
+                                        variant="destructive" 
+                                        size="sm"
+                                        className="text-xs px-2 py-1 h-7"
+                                        onClick={() => handleCancelAppointment(event as AppointmentEvent)}
+                                        disabled={!canCancel || event.status === 'Finished'}
+                                      >
+                                        Cancel
+                                      </Button>
+                                    );
+                                  })()}
                                 </>
                               )}
                             </>

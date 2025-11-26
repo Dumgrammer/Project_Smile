@@ -89,7 +89,7 @@ export function PatientSearch({ onSelect, selectedPatientId }: PatientSearchProp
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-full p-0" align="start">
-        <Command>
+        <Command shouldFilter={false}>
           <CommandInput 
             placeholder="Search patients by name or contact number..." 
             value={searchValue}
@@ -107,6 +107,12 @@ export function PatientSearch({ onSelect, selectedPatientId }: PatientSearchProp
                     setOpen(false);
                     setSearchValue("");
                   }}
+                  keywords={[
+                    patient.firstName,
+                    patient.middleName || '',
+                    patient.lastName,
+                    patient.contactNumber,
+                  ]}
                 >
                   <Check
                     className={cn(
