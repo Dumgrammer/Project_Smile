@@ -130,24 +130,53 @@ const normalizeLogo = (dataUrl: string, size = 256): Promise<string> => {
 };
 
 const loadLogo = async (path: string): Promise<string> => {
-  const response = await fetch(path);
-  if (!response.ok) {
-    throw new Error(`Failed to load logo: ${path}`);
-  }
-  const blob = await response.blob();
-  return await new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = async () => {
-      try {
-        const normalized = await normalizeLogo(reader.result as string);
-        resolve(normalized);
-      } catch (error) {
-        reject(error);
+  // Ensure we're using the correct path format for Next.js public folder
+  // In Next.js, files in the public folder are served from the root
+  // So /nogo.png maps to public/nogo.png
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  
+  // Try multiple path variations in case of case sensitivity or path issues
+  const pathsToTry = [
+    normalizedPath,
+    normalizedPath.toLowerCase(), // Try lowercase version
+    normalizedPath.replace(/^\/+/, '/'), // Ensure single leading slash
+  ];
+  
+  let lastError: Error | null = null;
+  
+  for (const url of pathsToTry) {
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        cache: 'no-cache', // Ensure we get fresh files
+      });
+      
+      if (response.ok) {
+        const blob = await response.blob();
+        return await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = async () => {
+            try {
+              const normalized = await normalizeLogo(reader.result as string);
+              resolve(normalized);
+            } catch (error) {
+              reject(error);
+            }
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+      } else {
+        lastError = new Error(`Failed to load logo: ${url} (Status: ${response.status})`);
       }
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      // Continue to next path
+    }
+  }
+  
+  // If all paths failed, throw the last error
+  throw lastError || new Error(`Failed to load logo from all attempted paths: ${pathsToTry.join(', ')}`);
 };
 
 export default function ReportsPage() {
@@ -188,12 +217,20 @@ export default function ReportsPage() {
 
   // Preload clinic logos for PDF export header
   useEffect(() => {
+    // Only run on client side
+    if (typeof window === 'undefined') {
+      return;
+    }
+
     let isMounted = true;
 
     const fetchLogos = async () => {
       try {
+        // Use correct case-sensitive paths matching the actual filenames in public folder
+        // Files are: nogo.png and wogo.png (both lowercase)
+        // In Next.js, public folder files are served from root, so /nogo.png works
         const [left, right] = await Promise.all([
-          loadLogo('/Nogo.png'),
+          loadLogo('/nogo.png'),
           loadLogo('/wogo.png'),
         ]);
 
@@ -203,6 +240,17 @@ export default function ReportsPage() {
         }
       } catch (error) {
         console.warn('Unable to load report logos', error);
+        // Log detailed error for debugging
+        if (error instanceof Error) {
+          console.warn('Logo loading error details:', {
+            message: error.message,
+            // Log current location for debugging
+            location: window.location.href,
+            // Log available paths for debugging
+            baseURL: window.location.origin,
+          });
+        }
+        // Continue without logos - PDF will still generate but without header logos
       }
     };
 
@@ -404,6 +452,46 @@ export default function ReportsPage() {
     }
   }, [reportType, startDate, endDate, getPatients, getAppointments, getLogs, getInquiries]);
 
+  // Helper function to clean data by removing IDs and is_archive
+  const cleanDataForExport = (dataToClean: ReportData[]): ReportData[] => {
+    return dataToClean.map(row => {
+      const cleanedRow = { ...row } as Record<string, unknown>;
+      
+      // Remove _id and id from ALL report types
+      delete cleanedRow._id;
+      delete cleanedRow.id;
+      
+      // Remove additional ID fields for logs reports
+      if (reportType === 'logs') {
+        delete cleanedRow.adminId;
+        delete cleanedRow.entityId;
+      }
+      
+      // Remove is_archive/isArchived from all report types
+      delete cleanedRow.is_archive;
+      delete cleanedRow.isArchive;
+      delete cleanedRow.isArchived; // For inquiries (camelCase)
+      
+      // Clean cases array in patient data - remove IDs and is_archive from each case
+      if ((reportType === 'patients' || reportType === 'archived-patients') && Array.isArray(cleanedRow.cases)) {
+        cleanedRow.cases = (cleanedRow.cases as unknown[]).map((caseItem: unknown) => {
+          if (typeof caseItem === 'object' && caseItem !== null) {
+            const cleanedCase = { ...caseItem } as Record<string, unknown>;
+            delete cleanedCase._id;
+            delete cleanedCase.id;
+            delete cleanedCase.is_archive;
+            delete cleanedCase.isArchive;
+            delete cleanedCase.isArchived;
+            return cleanedCase;
+          }
+          return caseItem;
+        });
+      }
+      
+      return cleanedRow as ReportData;
+    });
+  };
+
   const exportToCSV = () => {
     if (data.length === 0) {
       toast.error('No data to export');
@@ -411,10 +499,11 @@ export default function ReportsPage() {
     }
 
     try {
-      const headers = Object.keys(data[0]);
+      const cleanedData = cleanDataForExport(data);
+      const headers = Object.keys(cleanedData[0]);
       const csvContent = [
         headers.join(','),
-        ...data.map(row => headers.map(header => {
+        ...cleanedData.map(row => headers.map(header => {
           const value = (row as Record<string, unknown>)[header];
           if (value === null || value === undefined) return '';
           if (typeof value === 'object') return JSON.stringify(value);
@@ -445,7 +534,8 @@ export default function ReportsPage() {
     }
 
     try {
-      const worksheet = XLSX.utils.json_to_sheet(data);
+      const cleanedData = cleanDataForExport(data);
+      const worksheet = XLSX.utils.json_to_sheet(cleanedData);
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, 'Report');
       XLSX.writeFile(workbook, `${reportType}-${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
@@ -489,7 +579,19 @@ export default function ReportsPage() {
       }
       if (key === 'cases' && Array.isArray(value)) {
         if (value.length === 0) return 'No cases';
-        return `${value.length} case(s): ${value.map((c: Case) => c.title || 'Untitled').join(', ')}`;
+        // Clean cases by removing IDs and is_archive before formatting
+        const cleanedCases = value.map((c: Case) => {
+          if (typeof c === 'object' && c !== null) {
+            const cleaned = { ...c } as Record<string, unknown>;
+            delete cleaned._id;
+            delete cleaned.id;
+            delete cleaned.is_archive;
+            delete cleaned.isArchive;
+            return cleaned as Case;
+          }
+          return c;
+        });
+        return `${cleanedCases.map((c: Case) => c.title || 'Untitled').join(', ')}`;
       }
     }
     
@@ -695,23 +797,21 @@ export default function ReportsPage() {
       doc.text(`Generated: ${format(new Date(), 'MMM dd, yyyy HH:mm')}`, margin, 52);
       doc.text(`Total Records: ${data.length}`, margin, 58);
 
+      // Clean data before preparing for PDF
+      const cleanedData = cleanDataForExport(data);
+
       // Prepare table data with formatted headers and values
-      let rawHeaders = Object.keys(data[0]);
+      let rawHeaders = Object.keys(cleanedData[0]);
       let formattedHeaders: string[];
       let rows: string[][];
 
       // For appointments, reorder columns and rename title to Treatment
       if (reportType === 'appointments' || reportType === 'finished-appointments') {
-        // Define desired column order
-        const desiredOrder = ['_id', 'patient', 'title', 'date', 'startTime', 'endTime', 'status', 'cancellationReason'];
+        // Define desired column order (excluding _id and id)
+        const desiredOrder = ['patient', 'title', 'date', 'startTime', 'endTime', 'status', 'cancellationReason'];
         
-        // Columns to exclude from the report
-        const excludedColumns = ['__v', 'createdAt', 'updatedAt', 'formattedCreatedAt', 'isActive'];
-        
-        // If _id exists, exclude 'id' to avoid duplicates
-        if (rawHeaders.includes('_id')) {
-          excludedColumns.push('id');
-        }
+        // Columns to exclude from the report (including all ID fields)
+        const excludedColumns = ['__v', 'createdAt', 'updatedAt', 'formattedCreatedAt', 'isActive', '_id', 'id'];
         
         // Get available columns in desired order, then add any remaining columns
         // Exclude unwanted columns
@@ -736,21 +836,23 @@ export default function ReportsPage() {
           return formatHeader(header);
         });
         
-        rows = data.map(row => 
+        rows = cleanedData.map(row => 
           rawHeaders.map(header => formatCellValue((row as Record<string, unknown>)[header], header))
         );
       } else {
         // For other report types, use default order but exclude unwanted columns
-        const excludedColumns = ['__v', 'createdAt', 'updatedAt', 'formattedCreatedAt', 'isActive'];
+        // Exclude _id and id from ALL report types
+        // Exclude is_archive/isArchived from ALL report types
+        const excludedColumns = ['__v', 'createdAt', 'updatedAt', 'formattedCreatedAt', 'isActive', '_id', 'id', 'is_archive', 'isArchive', 'isArchived'];
         
-        // If _id exists, exclude 'id' to avoid duplicates
-        if (rawHeaders.includes('_id')) {
-          excludedColumns.push('id');
+        // For logs reports, also exclude additional ID fields
+        if (reportType === 'logs') {
+          excludedColumns.push('adminId', 'entityId');
         }
         
         rawHeaders = rawHeaders.filter(header => !excludedColumns.includes(header));
         formattedHeaders = rawHeaders.map(formatHeader);
-        rows = data.map(row => 
+        rows = cleanedData.map(row => 
           rawHeaders.map(header => formatCellValue((row as Record<string, unknown>)[header], header))
         );
       }
@@ -1039,20 +1141,31 @@ export default function ReportsPage() {
                           <Table>
                             <TableHeader>
                               <TableRow>
-                                {data.length > 0 && Object.keys(data[0]).slice(0, 10).map((key) => (
-                                  <TableHead key={key} className="capitalize">
-                                    {key.replace(/([A-Z])/g, ' $1').trim()}
-                                  </TableHead>
-                                ))}
-                                {Object.keys(data[0] || {}).length > 10 && (
-                                  <TableHead>...</TableHead>
-                                )}
+                                {data.length > 0 && (() => {
+                                  const cleanedData = cleanDataForExport(data);
+                                  const headers = Object.keys(cleanedData[0] || {});
+                                  return headers.slice(0, 10).map((key) => (
+                                    <TableHead key={key} className="capitalize">
+                                      {key.replace(/([A-Z])/g, ' $1').trim()}
+                                    </TableHead>
+                                  ));
+                                })()}
+                                {(() => {
+                                  const cleanedData = cleanDataForExport(data);
+                                  const headers = Object.keys(cleanedData[0] || {});
+                                  return headers.length > 10 && (
+                                    <TableHead>...</TableHead>
+                                  );
+                                })()}
                               </TableRow>
                             </TableHeader>
                             <TableBody>
-                              {data.slice(0, 100).map((row, index) => (
-                                <TableRow key={index}>
-                                  {Object.keys(data[0]).slice(0, 10).map((key) => (
+                              {(() => {
+                                const cleanedData = cleanDataForExport(data);
+                                const headers = Object.keys(cleanedData[0] || {});
+                                return cleanedData.slice(0, 100).map((row, index) => (
+                                  <TableRow key={index}>
+                                    {headers.slice(0, 10).map((key) => (
                                     <TableCell key={key} className="max-w-[200px] truncate">
                                       {(() => {
                                         const value = (row as Record<string, unknown>)[key];
@@ -1079,7 +1192,19 @@ export default function ReportsPage() {
                                           }
                                           if (key === 'cases' && Array.isArray(value)) {
                                             if (value.length === 0) return 'No cases';
-                                            return `${value.length} case(s): ${value.map((c: Case) => c.title || 'Untitled').join(', ')}`;
+                                            // Clean cases by removing IDs and is_archive before formatting
+                                            const cleanedCases = value.map((c: Case) => {
+                                              if (typeof c === 'object' && c !== null) {
+                                                const cleaned = { ...c } as Record<string, unknown>;
+                                                delete cleaned._id;
+                                                delete cleaned.id;
+                                                delete cleaned.is_archive;
+                                                delete cleaned.isArchive;
+                                                return cleaned as Case;
+                                              }
+                                              return c;
+                                            });
+                                            return `${cleanedCases.map((c: Case) => c.title || 'Untitled').join(', ')}`;
                                           }
                                           if (key === 'patient' && typeof value === 'object' && value !== null) {
                                             const p = value as PatientInfo;
@@ -1121,14 +1246,19 @@ export default function ReportsPage() {
                                         return String(value).substring(0, 100);
                                       })()}
                                     </TableCell>
-                                  ))}
-                                  {Object.keys(data[0]).length > 10 && (
-                                    <TableCell className="text-slate-500">
-                                      +{Object.keys(data[0]).length - 10} more
-                                    </TableCell>
-                                  )}
-                                </TableRow>
-                              ))}
+                                    ))}
+                                    {(() => {
+                                      const cleanedData = cleanDataForExport(data);
+                                      const headers = Object.keys(cleanedData[0] || {});
+                                      return headers.length > 10 && (
+                                        <TableCell className="text-slate-500">
+                                          +{headers.length - 10} more
+                                        </TableCell>
+                                      );
+                                    })()}
+                                  </TableRow>
+                                ));
+                              })()}
                             </TableBody>
                           </Table>
                         </div>

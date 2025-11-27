@@ -364,6 +364,52 @@ export const useInquiries = () => {
     }
   };
 
+  // Reply to inquiry (admin)
+  const replyToInquiry = async (id: string, replyMessage: string) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Encrypt the reply data
+      const encryptedData = encrypt({ replyMessage });
+      
+      const response = await protectedApi.post(`/inquiry/${id}/reply`, {
+        data: encryptedData
+      });
+
+      // Decrypt the response
+      const decryptedResponse = decrypt(response.data.data);
+      
+      return {
+        success: true,
+        message: decryptedResponse.message,
+        inquiry: decryptedResponse.inquiry as Inquiry,
+        emailSent: decryptedResponse.emailSent || false
+      };
+    } catch (err: unknown) {
+      let errorMessage = 'Failed to send reply.';
+      
+      if (isApiError(err) && err.response?.data?.data) {
+        try {
+          const decryptedError = decrypt(err.response.data.data);
+          errorMessage = String(decryptedError.error || errorMessage);
+        } catch (decryptError) {
+          console.error('Error decrypting error response:', decryptError);
+        }
+      } else if (isApiError(err) && err.response?.data?.error) {
+        errorMessage = String(err.response.data.error);
+      }
+      
+      setError(errorMessage);
+      return {
+        success: false,
+        error: errorMessage
+      };
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Restore inquiry (alias for unarchive for better UX)
   const restoreInquiry = async (id: string) => {
     setLoading(true);
@@ -413,6 +459,7 @@ export const useInquiries = () => {
     unarchiveInquiry,
     restoreInquiry,
     deleteInquiry,
+    replyToInquiry,
     getInquiryStats
   };
 };

@@ -916,7 +916,7 @@ export default function AppointmentsPage() {
                                 Reschedule
                               </Button>
                               <Button 
-                                key={`cancel-pending-${event.id}`}
+                                key={`cancel-${event.id}-pending`}
                                 variant="destructive" 
                                 size="sm"
                                 className="text-xs px-2 py-1 h-7"
@@ -990,22 +990,7 @@ export default function AppointmentsPage() {
                                     const canCancel = canCancelAppointmentNow(event.start);
                                     return (
                                       <Button 
-                                        key={`cancel-${event.id}`}
-                                        variant="destructive" 
-                                        size="sm"
-                                        className="text-xs px-2 py-1 h-7"
-                                        onClick={() => handleCancelAppointment(event as AppointmentEvent)}
-                                        disabled={!canCancel || event.status === 'Finished'}
-                                      >
-                                        Cancel
-                                      </Button>
-                                    );
-                                  })()}
-                                  {(() => {
-                                    const canCancel = canCancelAppointmentNow(event.start);
-                                    return (
-                                      <Button 
-                                        key={`cancel-${event.id}`}
+                                        key={`cancel-${event.id}-primary`}
                                         variant="destructive" 
                                         size="sm"
                                         className="text-xs px-2 py-1 h-7"

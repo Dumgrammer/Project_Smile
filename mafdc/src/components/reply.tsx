@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Send, X } from "lucide-react";
 import { toast } from "sonner";
 import { Inquiry } from '@/interface/Inquiry';
+import { useInquiries } from '@/hooks/inquiry/inquiryHooks';
 
 interface ReplyDialogProps {
   inquiry: Inquiry | null;
@@ -113,6 +114,7 @@ Please feel free to provide more details about your inquiry, and we will be happ
 export function ReplyDialog({ inquiry, open, onOpenChange, onReplySuccess }: ReplyDialogProps) {
   const [replyMessage, setReplyMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const { replyToInquiry } = useInquiries();
 
   // Auto-populate reply message based on inquiry subject
   useEffect(() => {
@@ -134,19 +136,23 @@ export function ReplyDialog({ inquiry, open, onOpenChange, onReplySuccess }: Rep
     setIsLoading(true);
     
     try {
-      // TODO: Replace with actual API call
-      // await sendReply(inquiry.id, replyMessage);
+      const result = await replyToInquiry(inquiry.id, replyMessage.trim());
       
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      toast.success('Reply sent successfully');
-      setReplyMessage('');
-      onOpenChange(false);
-      
-      // Mark inquiry as replied
-      if (onReplySuccess) {
-        onReplySuccess(inquiry.id);
+      if (result.success) {
+        if (result.emailSent) {
+          toast.success('Reply sent successfully and email delivered');
+        } else {
+          toast.success('Reply saved successfully, but email delivery failed');
+        }
+        setReplyMessage('');
+        onOpenChange(false);
+        
+        // Mark inquiry as replied
+        if (onReplySuccess) {
+          onReplySuccess(inquiry.id);
+        }
+      } else {
+        toast.error(result.error || 'Failed to send reply');
       }
     } catch (error) {
       console.error('Failed to send reply:', error);
